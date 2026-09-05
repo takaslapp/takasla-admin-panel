@@ -1,0 +1,38 @@
+{
+  "url": "http://127.0.0.1:8081/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "Takasla Yonetim",
+      "hasCanvas": false,
+      "bodyTextLen": 995,
+      "bodyTextHash": "bdbe3746d49b05913dca8b9a48b441ba70a0c1fc9fe1e3f10febcdc5be750b13",
+      "bodyTextPrefix": "Takasla Genel bakış Kullanıcılar İlanlar Şikayetler Öneriler Ana",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/prod-preview.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "Takasla Yonetim",
+      "hasCanvas": false,
+      "bodyTextLen": 933,
+      "bodyTextHash": "4e41fd7e1faa30ca51482b2f789d6950172fce6abb73c2204adcd0fb8d4d05c0",
+      "bodyTextPrefix": "Takasla Konum : İstanbul, Türkiye Merkez Takas Ağı Hub - Zone A ",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/prod-preview-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/prod-preview.json",
+  "divergesFromBaseline": false,
+  "baselineReasons": []
+}

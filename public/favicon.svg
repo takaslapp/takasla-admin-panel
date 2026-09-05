@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Takasla">
+  <rect width="32" height="32" rx="8" fill="#1a6b6b"/>
+  <path fill="#eef3ea" d="M6.5 10.5h12.2V7.4L26 13.2l-7.3 5.8v-3.1H6.5z"/>
+  <path fill="#e85d04" d="M25.5 21.5H13.3v3.1L6 18.8l7.3-5.8v3.1h12.2z"/>
+</svg>
