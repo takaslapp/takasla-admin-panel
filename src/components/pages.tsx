@@ -17,7 +17,7 @@ import {
   Users,
   XCircle,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   Area,
@@ -74,8 +74,13 @@ const sugTone: Record<SuggestionStatus, "ok" | "warn" | "info" | "mute"> = {
    1. KULLANICILAR SAYFASI
    ========================================================================= */
 export function UsersPage() {
+  const fetchDashboardData = useAdminStore((s) => s.fetchDashboardData);
   const users = useAdminStore((s) => s.users);
   const [q, setQ] = useState("");
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, [fetchDashboardData]);
 
   const rows = useMemo(
     () =>
@@ -115,9 +120,12 @@ export function UsersPage() {
                     <td className="py-3.5">
                       <div className="flex items-center gap-3">
                         <img
-                          src={u.avatar || "/avatars/ayse.jpg"}
-                          alt=""
+                          src={u.avatar}
+                          alt={u.name}
                           className="size-10 rounded-full object-cover ring-1 ring-line"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name)}&background=255a47&color=ffffff`;
+                          }}
                         />
                         <div>
                           <p className="font-semibold text-ink">{u.name}</p>
@@ -171,373 +179,328 @@ export function UsersPage() {
 }
 
 /* =========================================================================
-   2. İLANLAR SAYFASI (Onayla, Reddet + Neden Modal, Sil)
+   2. İLANLAR SAYFASI (Yayınla / Reddet / Sil Yetenekleriyle)
    ========================================================================= */
 export function ListingsPage() {
+  const fetchDashboardData = useAdminStore((s) => s.fetchDashboardData);
   const listings = useAdminStore((s) => s.listings);
   const approveListing = useAdminStore((s) => s.approveListing);
   const rejectListing = useAdminStore((s) => s.rejectListing);
   const deleteListing = useAdminStore((s) => s.deleteListing);
 
   const [q, setQ] = useState("");
-  const [rejectModalListing, setRejectModalListing] = useState<Listing | null>(null);
+  const [activeTab, setActiveTab] = useState<"all" | "yayinda" | "reddedildi">("all");
+  const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
   const [rejectReason, setRejectReason] = useState("");
-  const [detailModalListing, setDetailModalListing] = useState<Listing | null>(null);
+  const [showRejectModal, setShowRejectModal] = useState(false);
 
-  const rows = useMemo(
-    () =>
-      listings.filter((l) =>
-        `${l.title} ${l.ownerName} ${l.category} ${l.city} ${l.wants}`.toLowerCase().includes(q.toLowerCase()),
-      ),
-    [listings, q],
-  );
+  useEffect(() => {
+    fetchDashboardData();
+  }, [fetchDashboardData]);
 
-  const handleConfirmReject = async () => {
-    if (!rejectModalListing) return;
-    if (!rejectReason.trim()) {
-      toast.error("Lütfen kullanıcıya iletilecek bir red nedeni yazın.");
-      return;
-    }
+  const filtered = useMemo(() => {
+    return listings.filter((l) => {
+      const matchTab =
+        activeTab === "all" ? true : activeTab === "yayinda" ? l.status === "yayinda" : l.status === "reddedildi";
+      const matchSearch =
+        `${l.title} ${l.ownerName} ${l.category} ${l.city} ${l.wants}`
+          .toLowerCase()
+          .includes(q.toLowerCase());
+      return matchTab && matchSearch;
+    });
+  }, [listings, activeTab, q]);
 
-    await rejectListing(rejectModalListing.id, rejectReason.trim());
-    toast.success(`İlan reddedildi ve kullanıcıya bildirim gönderildi.`);
-    setRejectModalListing(null);
-    setRejectReason("");
+  const handleApprove = async (id: string, title: string) => {
+    await approveListing(id);
+    toast.success(`"${title}" başlıklı ilan başarıyla onaylandı ve yayına alındı.`);
   };
 
-  const handleDelete = async (l: Listing) => {
-    if (window.confirm(`"${l.title}" ilanını kalıcı olarak silmek istiyor musunuz?`)) {
-      await deleteListing(l.id);
-      toast.success("İlan başarıyla silindi.");
+  const handleOpenReject = (listing: Listing) => {
+    setSelectedListing(listing);
+    setRejectReason("Platform kurallarına uygun olmayan içerik tespit edildi.");
+    setShowRejectModal(true);
+  };
+
+  const handleConfirmReject = async () => {
+    if (!selectedListing) return;
+    await rejectListing(selectedListing.id, rejectReason);
+    toast.error(`"${selectedListing.title}" başlıklı ilan reddedildi ve sahibine bildirim yollandı.`);
+    setShowRejectModal(false);
+    setSelectedListing(null);
+  };
+
+  const handleDelete = async (id: string, title: string) => {
+    if (confirm(`"${title}" başlıklı ilanı kalıcı olarak silmek istediğinize emin misiniz?`)) {
+      await deleteListing(id);
+      toast.info(`İlan sistemden kalıcı olarak silindi.`);
     }
   };
 
   return (
-    <AdminShell compact kicker="İlan Yönetimi" title="İlanlar ve Denetim">
-      <Panel title="Tüm İlanlar" subtitle={`${listings.length} ilan yayında veya denetimde`}>
-        <Toolbar value={q} onChange={setQ} placeholder="İlan başlığı, sahibi, kategori veya takas hedefi ara..." />
+    <AdminShell compact kicker="İlan Yönetim Masası" title="Tüm İlanlar">
+      <div className="grid gap-5">
+        {/* İlan Durumu Filtreleme Sekmeleri */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex gap-2">
+            <Button
+              variant={activeTab === "all" ? "dark" : "outline"}
+              size="sm"
+              onClick={() => setActiveTab("all")}
+            >
+              Tümü ({listings.length})
+            </Button>
+            <Button
+              variant={activeTab === "yayinda" ? "dark" : "outline"}
+              size="sm"
+              onClick={() => setActiveTab("yayinda")}
+            >
+              Yayında ({listings.filter((l) => l.status === "yayinda").length})
+            </Button>
+            <Button
+              variant={activeTab === "reddedildi" ? "dark" : "outline"}
+              size="sm"
+              onClick={() => setActiveTab("reddedildi")}
+            >
+              Reddedilenler ({listings.filter((l) => l.status === "reddedildi").length})
+            </Button>
+          </div>
+        </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[940px] text-left text-sm">
-            <thead className="text-xs uppercase tracking-wide text-muted">
-              <tr className="border-b border-line">
-                <th className="pb-3 font-semibold">İlan Bilgileri</th>
-                <th className="pb-3 font-semibold">İlan Sahibi</th>
-                <th className="pb-3 font-semibold">Kategori / Konum</th>
-                <th className="pb-3 font-semibold">Takas Hedefi</th>
-                <th className="pb-3 font-semibold">Durum</th>
-                <th className="pb-3 font-semibold text-right">İşlemler</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line/60">
-              {rows.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="py-8 text-center text-muted">
-                    Aramanıza uygun ilan bulunamadı.
-                  </td>
+        <Panel title="İlan Listesi" subtitle={`${filtered.length} ilan listeleniyor`}>
+          <Toolbar value={q} onChange={setQ} placeholder="İlan başlığı, sahibi, kategori, şehir veya takas tercihi ara..." />
+
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[960px] text-left text-sm">
+              <thead className="text-xs uppercase tracking-wide text-muted">
+                <tr className="border-b border-line">
+                  <th className="pb-3 font-semibold">İlan Detayı</th>
+                  <th className="pb-3 font-semibold">İlan Sahibi</th>
+                  <th className="pb-3 font-semibold">Kategori & Durum</th>
+                  <th className="pb-3 font-semibold">Takas Tercihi</th>
+                  <th className="pb-3 font-semibold">Yayın Durumu</th>
+                  <th className="pb-3 font-semibold text-right">İşlemler</th>
                 </tr>
-              ) : (
-                rows.map((l) => (
-                  <tr key={l.id} className="hover:bg-shell/30 transition-colors">
-                    {/* İlan Başlığı & Detayı (UUID YOK) */}
-                    <td className="py-3.5 max-w-[240px]">
-                      <p className="font-semibold text-ink line-clamp-1">{l.title}</p>
-                      <p className="text-xs text-muted line-clamp-1 mt-0.5">{l.condition}</p>
+              </thead>
+              <tbody className="divide-y divide-line/60">
+                {filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-8 text-center text-muted">
+                      Filtreleme kriterlerine uygun ilan bulunamadı.
                     </td>
-
-                    {/* İlan Sahibi */}
-                    <td className="py-3.5">
-                      <p className="font-medium text-ink">{l.ownerName}</p>
-                      <p className="text-xs text-muted font-mono">{l.ownerPhone}</p>
-                    </td>
-
-                    {/* Kategori & Şehir */}
-                    <td className="py-3.5">
-                      <span className="inline-flex items-center gap-1 text-xs font-medium text-forest">
-                        <Tag className="size-3" />
-                        {l.category}
-                      </span>
-                      <p className="text-xs text-muted mt-0.5">{l.city}</p>
-                    </td>
-
-                    {/* Takas Hedefi */}
-                    <td className="py-3.5 max-w-[180px]">
-                      <span className="text-xs font-medium text-ink/85 line-clamp-1">
-                        🎯 {l.wants}
-                      </span>
-                    </td>
-
-                    {/* Durum */}
-                    <td className="py-3.5">
-                      <StatusChip tone={l.status === "yayinda" ? "ok" : "bad"}>
-                        {l.status === "yayinda" ? "Yayında" : "Reddedildi"}
-                      </StatusChip>
-                    </td>
-
-                    {/* İşlem Butonları */}
-                    <td className="py-3.5 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        {/* Detay Gör Butonu */}
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setDetailModalListing(l)}
-                          title="Tüm Bilgileri Gör"
-                        >
-                          <Eye className="size-3.5" />
-                        </Button>
-
-                        {/* Onayla Butonu */}
-                        {l.status !== "yayinda" ? (
-                          <Button
-                            size="sm"
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                            onClick={async () => {
-                              await approveListing(l.id);
-                              toast.success(`"${l.title}" onaylandı ve yayına alındı.`);
-                            }}
-                          >
-                            <CheckCircle className="size-3.5" /> Onayla
-                          </Button>
-                        ) : null}
-
-                        {/* Reddet Butonu */}
-                        {l.status === "yayinda" ? (
+                  </tr>
+                ) : (
+                  filtered.map((l) => (
+                    <tr key={l.id} className="hover:bg-shell/30 transition-colors">
+                      <td className="py-3.5 max-w-[260px]">
+                        <p className="font-semibold text-ink line-clamp-1">{l.title}</p>
+                        <p className="text-xs text-muted flex items-center gap-1 mt-0.5">
+                          <MapPin className="size-3" /> {l.city} · <Clock className="size-3" /> {l.created}
+                        </p>
+                      </td>
+                      <td className="py-3.5">
+                        <p className="font-medium text-ink/90">{l.ownerName}</p>
+                        <p className="text-xs text-muted font-mono">{l.ownerPhone}</p>
+                      </td>
+                      <td className="py-3.5">
+                        <span className="inline-flex rounded-full bg-shell px-2.5 py-0.5 text-xs font-medium text-ink">
+                          {l.category}
+                        </span>
+                        <p className="text-[11px] text-muted mt-0.5">{l.condition}</p>
+                      </td>
+                      <td className="py-3.5 max-w-[200px]">
+                        <p className="text-xs font-medium text-emerald-800 bg-emerald-50 rounded-lg p-1.5 border border-emerald-200/60 line-clamp-2">
+                          🔄 {l.wants}
+                        </p>
+                      </td>
+                      <td className="py-3.5">
+                        <StatusChip tone={l.status === "yayinda" ? "ok" : "bad"}>
+                          {l.status === "yayinda" ? "Yayında" : "Reddedildi"}
+                        </StatusChip>
+                      </td>
+                      <td className="py-3.5 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          {l.status === "reddedildi" ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 border-emerald-300"
+                              onClick={() => handleApprove(l.id, l.title)}
+                              title="Tekrar Yayına Al"
+                            >
+                              <RotateCcw className="size-3.5 mr-1" /> Yayına Al
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-rose-700 hover:bg-rose-50 hover:text-rose-800 border-rose-200"
+                              onClick={() => handleOpenReject(l)}
+                              title="İlanı Reddet"
+                            >
+                              <XCircle className="size-3.5 mr-1" /> Reddet
+                            </Button>
+                          )}
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="text-rose-600 hover:bg-rose-50"
-                            onClick={() => {
-                              setRejectModalListing(l);
-                              setRejectReason("");
-                            }}
+                            className="text-muted hover:text-rose-600"
+                            onClick={() => handleDelete(l.id, l.title)}
+                            title="Kalıcı Sil"
                           >
-                            <XCircle className="size-3.5" /> Reddet
+                            <Trash2 className="size-4" />
                           </Button>
-                        ) : null}
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </Panel>
+      </div>
 
-                        {/* Kaldır / Sil Butonu */}
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="text-red-700 hover:bg-red-50"
-                          onClick={() => handleDelete(l)}
-                          title="İlanı Sil"
-                        >
-                          <Trash2 className="size-3.5" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Panel>
-
-      {/* İLAN REDDETME MODALI (Admin nedenini yazar ve kullanıcıya bildirim gider) */}
-      {rejectModalListing ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="w-full max-w-lg rounded-2xl bg-card p-6 shadow-2xl ring-1 ring-line">
-            <div className="flex items-start gap-3">
-              <span className="grid size-10 place-items-center rounded-xl bg-rose-100 text-rose-700">
-                <AlertTriangle className="size-5" />
-              </span>
-              <div>
-                <h3 className="text-lg font-bold text-ink">İlanı Reddet</h3>
-                <p className="text-xs text-muted">
-                  "{rejectModalListing.title}" ilanını reddetmek üzeresiniz.
-                </p>
-              </div>
-            </div>
+      {/* Reddetme Modalı */}
+      {showRejectModal && selectedListing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md rounded-2xl bg-card p-6 shadow-2xl ring-1 ring-line">
+            <h3 className="text-lg font-bold text-ink">İlanı Reddet & Kullanıcıya Bildir</h3>
+            <p className="mt-1 text-xs text-muted">
+              &ldquo;{selectedListing.title}&rdquo; başlıklı ilan yayından kaldırılacak ve kullanıcıya aşağıdaki açıklama bildirim olarak iletilecektir.
+            </p>
 
             <div className="mt-4">
-              <label className="block text-xs font-semibold text-ink">
-                Reddetme Nedeni (Kullanıcının bildirim ekranında görünecektir):
+              <label className="block text-xs font-semibold uppercase text-muted mb-1">
+                Red Gerekçesi (Kullanıcı Görecek)
               </label>
               <textarea
-                rows={4}
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
-                placeholder="Örn: Ürün görselleri net değil veya yanıltıcı takas isteği belirtilmiş. Lütfen güncelleyip tekrar gönderin."
-                className="mt-2 w-full rounded-xl border border-line bg-shell/40 p-3 text-sm text-ink outline-none focus:border-forest focus:ring-1 focus:ring-forest"
+                rows={3}
+                className="w-full rounded-xl border border-line bg-shell/50 p-3 text-sm text-ink outline-none focus:ring-2 focus:ring-forest"
+                placeholder="Örn: Görseller net değil veya yanıltıcı bilgi içeriyor..."
               />
             </div>
 
-            <div className="mt-5 flex items-center justify-end gap-2">
-              <Button
-                variant="ghost"
-                onClick={() => setRejectModalListing(null)}
-              >
+            <div className="mt-5 flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowRejectModal(false)}>
                 Vazgeç
               </Button>
-              <Button
-                className="bg-rose-600 hover:bg-rose-700 text-white"
-                onClick={handleConfirmReject}
-              >
-                Reddet ve Bildirim Gönder
+              <Button variant="destructive" onClick={handleConfirmReject}>
+                İlanı Reddet
               </Button>
             </div>
           </div>
         </div>
-      ) : null}
-
-      {/* İLAN TÜM BİLGİLERİ DETAY MODALI */}
-      {detailModalListing ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="w-full max-w-xl rounded-2xl bg-card p-6 shadow-2xl ring-1 ring-line max-h-[85vh] overflow-y-auto">
-            <div className="flex items-start justify-between">
-              <div>
-                <span className="text-xs font-semibold uppercase text-forest">{detailModalListing.category}</span>
-                <h3 className="text-xl font-bold text-ink mt-0.5">{detailModalListing.title}</h3>
-                <p className="text-xs text-muted">{detailModalListing.city} · {detailModalListing.created}</p>
-              </div>
-              <Button size="sm" variant="ghost" onClick={() => setDetailModalListing(null)}>
-                Kapat
-              </Button>
-            </div>
-
-            <div className="mt-5 space-y-4 text-sm">
-              <div className="rounded-xl bg-shell/40 p-3.5 ring-1 ring-line">
-                <span className="text-xs font-medium text-muted">İlan Sahibi</span>
-                <p className="font-semibold text-ink">{detailModalListing.ownerName} ({detailModalListing.ownerPhone})</p>
-              </div>
-
-              <div className="rounded-xl bg-shell/40 p-3.5 ring-1 ring-line">
-                <span className="text-xs font-medium text-muted">Takasta İstenen Ürün / Şartlar</span>
-                <p className="font-semibold text-emerald-800">{detailModalListing.wants}</p>
-              </div>
-
-              <div className="rounded-xl bg-shell/40 p-3.5 ring-1 ring-line">
-                <span className="text-xs font-medium text-muted">Ürün Durumu</span>
-                <p className="text-ink">{detailModalListing.condition}</p>
-              </div>
-
-              <div className="rounded-xl bg-shell/40 p-3.5 ring-1 ring-line">
-                <span className="text-xs font-medium text-muted">İlan Açıklaması</span>
-                <p className="mt-1 text-ink whitespace-pre-wrap">{detailModalListing.description}</p>
-              </div>
-            </div>
-
-            <div className="mt-6 flex justify-end">
-              <Button onClick={() => setDetailModalListing(null)}>Tamam</Button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      )}
     </AdminShell>
   );
 }
 
 /* =========================================================================
-   3. ŞİKAYETLER SAYFASI (Uygulamaya Canlı Bağlı)
+   3. ŞİKAYET VE BİLDİRİMLER SAYFASI (Supabase ile Bağlantılı)
    ========================================================================= */
 export function ReportsPage() {
+  const fetchDashboardData = useAdminStore((s) => s.fetchDashboardData);
   const reports = useAdminStore((s) => s.reports);
   const setReportStatus = useAdminStore((s) => s.setReportStatus);
-  const fetchDashboardData = useAdminStore((s) => s.fetchDashboardData);
-  const isLoading = useAdminStore((s) => s.isLoading);
   const [q, setQ] = useState("");
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, [fetchDashboardData]);
 
   const rows = useMemo(
     () =>
       reports.filter((r) =>
-        `${r.subject} ${r.reporter} ${r.target} ${r.detail}`.toLowerCase().includes(q.toLowerCase()),
+        `${r.subject} ${r.reporter} ${r.target} ${r.type}`.toLowerCase().includes(q.toLowerCase()),
       ),
     [reports, q],
   );
 
   return (
-    <AdminShell compact kicker="Güvenlik ve Denetim" title="Şikayet ve Bildirimler">
-      <div className="grid gap-4">
-        <Panel
-          title="Gelen Şikayetler"
-          subtitle={`${reports.length} toplam bildirim`}
-          action={
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={async () => {
-                await fetchDashboardData();
-                toast.success("Şikayet listesi güncellendi.");
-              }}
-              disabled={isLoading}
-              className="gap-1.5"
-            >
-              <RotateCcw className={`size-3.5 ${isLoading ? "animate-spin" : ""}`} />
-              Yenile
-            </Button>
-          }
-        >
-          <Toolbar value={q} onChange={setQ} placeholder="Şikayet konusu, kullanıcı veya hedef ara..." />
-          
+    <AdminShell compact kicker="Moderasyon ve Güvenlik" title="Şikayet ve Bildirimler">
+      <div className="grid gap-5">
+        <Panel title="Gelen Şikayetler" subtitle={`${reports.length} toplam bildirim`}>
+          <Toolbar value={q} onChange={setQ} placeholder="Şikayet konusu, şikayet eden veya hedef ara..." />
+
           {rows.length === 0 ? (
-            <div className="py-12 text-center text-muted">
-              <ShieldAlert className="size-10 mx-auto mb-2 opacity-40" />
-              <p>Herhangi bir açık şikayet bulunmuyor.</p>
+            <div className="py-12 text-center">
+              <CheckCircle className="mx-auto size-12 text-emerald-600 mb-2 opacity-80" />
+              <p className="font-semibold text-ink">Harika! Bekleyen açık şikayet bulunmuyor.</p>
+              <p className="text-xs text-muted mt-1">Mobil uygulamadan gelen tüm bildirimler incelendi veya henüz şikayet gelmedi.</p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-4"
+                onClick={async () => {
+                  await fetchDashboardData();
+                  toast.info("Şikayet listesi Supabase üzerinden yenilendi.");
+                }}
+              >
+                <RotateCcw className="size-3.5 mr-1" /> Listeyi Yenile
+              </Button>
             </div>
           ) : (
-            <ul className="space-y-3">
-              {rows.map((r) => (
-                <li
-                  key={r.id}
-                  className="rounded-2xl bg-shell/50 p-4 ring-1 ring-line transition-all hover:bg-shell/80"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-semibold text-rose-700 bg-rose-50 px-2.5 py-0.5 rounded-full">
-                          {r.type}
-                        </span>
-                        <p className="font-bold text-ink">{r.subject}</p>
-                      </div>
-                      <p className="mt-1.5 text-xs text-muted">
-                        Bildiren: <strong className="text-ink">{r.reporter}</strong> → Hedef: <strong className="text-ink">{r.target}</strong> · Tarih: {r.created}
-                      </p>
-                      <p className="mt-2 text-sm text-ink/90 bg-card p-3 rounded-xl ring-1 ring-line">
-                        {r.detail}
-                      </p>
-                    </div>
-                    <StatusChip tone={reportTone[r.status]}>{r.status}</StatusChip>
-                  </div>
-
-                  <div className="mt-3.5 flex flex-wrap gap-2 pt-2 border-t border-line/60">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={async () => {
-                        await setReportStatus(r.id, "inceleniyor");
-                        toast.success("Şikayet incelemeye alındı.");
-                      }}
-                    >
-                      İncelemeye Al
-                    </Button>
-                    <Button
-                      size="sm"
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                      onClick={async () => {
-                        await setReportStatus(r.id, "cozuldu");
-                        toast.success("Şikayet çözüldü olarak işaretlendi.");
-                      }}
-                    >
-                      Çözüldü Olarak Kapat
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="text-rose-600 hover:bg-rose-50"
-                      onClick={async () => {
-                        await setReportStatus(r.id, "reddedildi");
-                        toast.success("Şikayet geçersiz sayılarak reddedildi.");
-                      }}
-                    >
-                      Reddet
-                    </Button>
-                  </div>
-                </li>
-              ))}
-            </ul>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[760px] text-left text-sm">
+                <thead className="text-xs uppercase tracking-wide text-muted">
+                  <tr className="border-b border-line">
+                    <th className="pb-3 font-semibold">Şikayet Nedeni</th>
+                    <th className="pb-3 font-semibold">Bildiren Üye</th>
+                    <th className="pb-3 font-semibold">Şikayet Edilen İlan / Üye</th>
+                    <th className="pb-3 font-semibold">Tarih</th>
+                    <th className="pb-3 font-semibold">Durum</th>
+                    <th className="pb-3 font-semibold text-right">Aksiyon</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-line/60">
+                  {rows.map((r) => (
+                    <tr key={r.id} className="hover:bg-shell/30 transition-colors">
+                      <td className="py-3.5">
+                        <p className="font-semibold text-ink">{r.subject}</p>
+                        <p className="text-xs text-muted">{r.detail || r.type}</p>
+                      </td>
+                      <td className="py-3.5 text-muted">{r.reporter}</td>
+                      <td className="py-3.5 font-medium text-ink">{r.target}</td>
+                      <td className="py-3.5 text-xs text-muted">{r.created}</td>
+                      <td className="py-3.5">
+                        <StatusChip tone={reportTone[r.status]}>{r.status}</StatusChip>
+                      </td>
+                      <td className="py-3.5 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          {r.status === "acik" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setReportStatus(r.id, "cozuldu");
+                                toast.success("Şikayet çözüldü olarak işaretlendi.");
+                              }}
+                            >
+                              Çözüldü
+                            </Button>
+                          )}
+                          {r.status !== "reddedildi" && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-rose-600"
+                              onClick={() => {
+                                setReportStatus(r.id, "reddedildi");
+                                toast.info("Şikayet kapatıldı / reddedildi.");
+                              }}
+                            >
+                              Kapat
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </Panel>
       </div>
@@ -601,10 +564,15 @@ export function SuggestionsPage() {
    5. ANALİTİK SAYFASI (Haftalık / Aylık Kayıt ve İlan Dağılımı)
    ========================================================================= */
 export function AnalyticsPage() {
+  const fetchDashboardData = useAdminStore((s) => s.fetchDashboardData);
   const listings = useAdminStore((s) => s.listings);
   const users = useAdminStore((s) => s.users);
   const reports = useAdminStore((s) => s.reports);
   const swapStats = useAdminStore((s) => s.swapStats);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, [fetchDashboardData]);
 
   // Kategori dağılımını gerçek ilanlardan hesapla
   const categoryCounts: Record<string, number> = {};

@@ -62,57 +62,7 @@ export function formatPhone(phone: string | null | undefined): string {
   return phone;
 }
 
-export const USERS: User[] = [
-  {
-    id: "u-1",
-    name: "Recep Aydoğan",
-    username: "recep",
-    phone: "0505 063 85 43",
-    city: "Konya",
-    avatar: "/avatars/ayse.jpg",
-    listingsCount: 2,
-    joined: "02.09.2026 01:11",
-    role: "Kullanıcı",
-  },
-  {
-    id: "u-2",
-    name: "Selman Aydoğan",
-    username: "selman",
-    phone: "0555 123 45 67",
-    city: "İstanbul",
-    avatar: "/avatars/can.jpg",
-    listingsCount: 3,
-    joined: "01.09.2026 14:20",
-    role: "Yönetici",
-  },
-];
-
-export const LISTINGS: Listing[] = [
-  {
-    id: "l-1",
-    title: "DJI Mini 5 Pro",
-    ownerId: "u-1",
-    ownerName: "Recep Aydoğan",
-    ownerPhone: "0505 063 85 43",
-    category: "Elektronik & Teknoloji",
-    city: "İstanbul, Kadıköy",
-    wants: "Iphone 15-16",
-    condition: "Temiz / Sorunsuz Çalışıyor",
-    description: "Drone Dji marka ve temizdir",
-    status: "yayinda",
-    created: "04.09.2026 22:06",
-  },
-];
-
+export const USERS: User[] = [];
+export const LISTINGS: Listing[] = [];
 export const REPORTS: Report[] = [];
-
-export const SUGGESTIONS: Suggestion[] = [
-  {
-    id: "ON-88",
-    title: "Takas işlemlerine güvenli kurye entegrasyonu",
-    author: "Recep Aydoğan",
-    votes: 42,
-    status: "degerlendiriliyor",
-    created: "02.09.2026",
-  },
-];
+export const SUGGESTIONS: Suggestion[] = [];

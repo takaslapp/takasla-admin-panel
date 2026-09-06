@@ -1,48 +1,44 @@
 import { create } from "zustand";
-import {
-  LISTINGS,
-  REPORTS,
-  SUGGESTIONS,
-  USERS,
-  formatPhone,
-  type Listing,
-  type ListingStatus,
-  type Report,
-  type ReportStatus,
-  type Suggestion,
-  type SuggestionStatus,
-  type User,
-  type UserStatus,
+import type {
+  Listing,
+  ListingStatus,
+  Report,
+  ReportStatus,
+  Suggestion,
+  SuggestionStatus,
+  User,
 } from "./data";
+import { formatPhone, LISTINGS, REPORTS, SUGGESTIONS, USERS } from "./data";
 import { supabase } from "./supabase";
 
-type SwapOfferStats = {
+export interface SwapOfferStats {
   totalOffers: number;
   pendingOffers: number;
   acceptedOffers: number;
   rejectedOffers: number;
-};
+}
 
-type Store = {
+interface AdminStore {
   users: User[];
   listings: Listing[];
   reports: Report[];
   suggestions: Suggestion[];
   swapStats: SwapOfferStats;
   isLoading: boolean;
+
   fetchDashboardData: () => Promise<void>;
-  setUserStatus: (id: string, status: UserStatus) => Promise<void>;
+  setUserStatus: (id: string, status: "aktif" | "yeni") => Promise<void>;
   approveListing: (id: string) => Promise<void>;
   rejectListing: (id: string, reason: string) => Promise<void>;
   deleteListing: (id: string) => Promise<void>;
   setReportStatus: (id: string, status: ReportStatus) => Promise<void>;
   setSuggestionStatus: (id: string, status: SuggestionStatus) => void;
-};
+}
 
-export const useAdminStore = create<Store>()((set, get) => ({
+export const useAdminStore = create<AdminStore>((set, get) => ({
   users: USERS,
   listings: LISTINGS,
-  reports: [],
+  reports: REPORTS,
   suggestions: SUGGESTIONS,
   swapStats: {
     totalOffers: 0,
@@ -55,7 +51,7 @@ export const useAdminStore = create<Store>()((set, get) => ({
   fetchDashboardData: async () => {
     set({ isLoading: true });
     try {
-      // 1. Canlı Kullanıcılar (profiles) ve İlanlar (listings) paralel çekilir
+      // 1. Supabase Profiles, Listings, Swap Offers
       const [profilesRes, listingsRes, offersRes] = await Promise.all([
         supabase.from("profiles").select("*").order("created_at", { ascending: false }),
         supabase.from("listings").select("*").order("created_at", { ascending: false }),
@@ -78,7 +74,7 @@ export const useAdminStore = create<Store>()((set, get) => ({
       }
 
       // Kullanıcı listesi
-      let usersList: User[] = USERS;
+      let usersList: User[] = [];
       if (rawProfiles.length > 0) {
         usersList = rawProfiles.map((p) => {
           const fullName = p.full_name || p.username || "Kullanıcı";
@@ -89,13 +85,18 @@ export const useAdminStore = create<Store>()((set, get) => ({
           const dt = p.created_at ? new Date(p.created_at) : new Date();
           const joinedFormatted = `${dt.toLocaleDateString("tr-TR")} ${dt.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}`;
 
+          const avatarUrl =
+            p.avatar_url && p.avatar_url.trim() !== ""
+              ? p.avatar_url
+              : `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=255a47&color=ffffff`;
+
           return {
             id: p.id,
             name: fullName,
             username,
             phone,
             city: p.city || "Türkiye",
-            avatar: p.avatar_url || "/avatars/ayse.jpg",
+            avatar: avatarUrl,
             listingsCount: userListingCounts.get(p.id) || 0,
             joined: joinedFormatted,
             role: p.username === "admin" ? "Yönetici" : "Kullanıcı",
@@ -104,7 +105,7 @@ export const useAdminStore = create<Store>()((set, get) => ({
       }
 
       // İlan listesi
-      let listingsList: Listing[] = LISTINGS;
+      let listingsList: Listing[] = [];
       if (rawListings.length > 0) {
         listingsList = rawListings.map((l) => {
           const ownerInfo = userMap.get(l.user_id) || { name: "Kullanıcı", phone: "Belirtilmemiş" };

@@ -1,15 +1,6 @@
+import { ArrowUpRight, Package, Repeat, ShieldAlert, Users } from "lucide-react";
 import { Link } from "@tanstack/react-router";
-import {
-  ArrowUpRight,
-  CheckCircle2,
-  Clock,
-  Layers,
-  Package,
-  Repeat,
-  ShieldAlert,
-  UserCheck,
-  Users,
-} from "lucide-react";
+import { useEffect } from "react";
 import { useAdminStore } from "@/lib/store";
 import { AdminShell, Panel, StatusChip } from "./admin-shell";
 import { Button } from "./ui/button";
@@ -22,21 +13,21 @@ function StatCard({
   tone = "default",
 }: {
   icon: React.ComponentType<{ className?: string }>;
-  value: string | number;
+  value: number;
   label: string;
   sublabel?: string;
-  tone?: "default" | "warn" | "bad" | "good";
+  tone?: "default" | "good" | "warn" | "bad";
 }) {
   const toneClasses = {
     default: "text-forest border-line",
     good: "text-emerald-700 bg-emerald-50 border-emerald-200",
     warn: "text-amber-700 bg-amber-50 border-amber-200",
     bad: "text-rose-700 bg-rose-50 border-rose-200",
-  };
+  }[tone];
 
   return (
     <div className="flex items-start gap-3.5 rounded-2xl border border-line bg-shell/40 p-4 transition-all hover:bg-shell/70">
-      <span className={`grid size-11 shrink-0 place-items-center rounded-xl border ${toneClasses[tone]}`}>
+      <span className={`grid size-11 shrink-0 place-items-center rounded-xl border ${toneClasses}`}>
         <Icon className="size-5" />
       </span>
       <div className="min-w-0 flex-1">
@@ -49,10 +40,15 @@ function StatCard({
 }
 
 export function OverviewPage() {
+  const fetchDashboardData = useAdminStore((s) => s.fetchDashboardData);
   const listings = useAdminStore((s) => s.listings);
   const users = useAdminStore((s) => s.users);
   const reports = useAdminStore((s) => s.reports);
   const swapStats = useAdminStore((s) => s.swapStats);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, [fetchDashboardData]);
 
   const activeListings = listings.filter((l) => l.status === "yayinda");
   const rejectedListings = listings.filter((l) => l.status === "reddedildi");
@@ -214,9 +210,12 @@ export function OverviewPage() {
                   <li key={u.id} className="flex items-center justify-between py-3">
                     <div className="flex items-center gap-3">
                       <img
-                        src={u.avatar || "/avatars/ayse.jpg"}
-                        alt=""
+                        src={u.avatar}
+                        alt={u.name}
                         className="size-10 rounded-full object-cover ring-1 ring-line"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name)}&background=255a47&color=ffffff`;
+                        }}
                       />
                       <div>
                         <p className="font-semibold text-ink leading-tight">{u.name}</p>
