@@ -33,6 +33,14 @@ interface AdminStore {
   rejectListing: (id: string, reason: string) => Promise<void>;
   deleteListing: (id: string) => Promise<void>;
   setReportStatus: (id: string, status: ReportStatus) => Promise<void>;
+  resolveReport: (options: {
+    reportId: string;
+    action: "dismiss" | "delete_listing" | "warning";
+    customMessage?: string;
+    reporterId?: string;
+    targetTitle?: string;
+    targetListingId?: string;
+  }) => Promise<void>;
   setSuggestionStatus: (id: string, status: SuggestionStatus) => void;
 }
 
@@ -184,7 +192,9 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
               id: r.id || `SK-${i + 1}`,
               subject: r.reason || "Bildirim",
               reporter: r.reporter_name || (r.reporter_id ? userMap.get(r.reporter_id)?.name : undefined) || "Kullanıcı",
+              reporterId: r.reporter_id || undefined,
               target: r.target_title || "İlgili İlan",
+              targetId: r.target_id || undefined,
               type: r.type === "user" ? "Kullanıcı Şikayeti" : "İlan Bildirimi",
               status: (r.status as ReportStatus) || "acik",
               created: timeStr,
@@ -375,6 +385,61 @@ Sebep: ${reason}`,
       await supabase.from("reports").update({ status }).eq("id", id);
     } catch (e) {
       console.error("setReportStatus hatası:", e);
+    }
+  },
+
+  resolveReport: async (options) => {
+    const { reportId, action, customMessage, reporterId, targetTitle, targetListingId } = options;
+    const newStatus: ReportStatus = action === "dismiss" ? "reddedildi" : "cozuldu";
+
+    set((s) => ({
+      reports: s.reports.map((r) => (r.id === reportId ? { ...r, status: newStatus } : r)),
+    }));
+
+    try {
+      await supabase.from("reports").update({ status: newStatus }).eq("id", reportId);
+
+      if (action === "delete_listing" && targetListingId) {
+        await get().deleteListing(targetListingId);
+      }
+
+      if (reporterId) {
+        let notifTitle = "";
+        let notifMessage = "";
+
+        if (action === "dismiss") {
+          notifTitle = "Şikayetiniz İncelendi";
+          notifMessage =
+            customMessage ||
+            `"${targetTitle || "İlgili içerik"}" hakkındaki bildiriminiz moderasyon ekibimiz tarafından incelenmiş olup platform kurallarına aykırı bir duruma rastlanmamıştır. Hassasiyetiniz için teşekkür ederiz.`;
+        } else if (action === "delete_listing") {
+          notifTitle = "Şikayetiniz Sonuçlandı: İlan Kaldırıldı";
+          notifMessage =
+            customMessage ||
+            `Bildirdiğiniz "${targetTitle || "ilan"}" incelendi ve platform kurallarımıza aykırı bulunduğu için sistemden kaldırıldı. Takasla topluluğunu korumamıza yardımcı olduğunuz için teşekkür ederiz!`;
+        } else {
+          notifTitle = "Şikayetiniz İncelendi";
+          notifMessage =
+            customMessage ||
+            `"${targetTitle || "İlgili içerik"}" hakkındaki bildiriminiz incelenmiş ve gerekli moderasyon aksiyonu alınmıştır. Teşekkür ederiz.`;
+        }
+
+        try {
+          await supabase.from("notifications").insert({
+            user_id: reporterId,
+            title: notifTitle,
+            message: notifMessage,
+            type: "system",
+            notif_type: "system",
+            related_id: targetListingId || reportId,
+          });
+        } catch (notifErr) {
+          console.warn("Notification insert error:", notifErr);
+        }
+      }
+    } catch (e) {
+      console.error("resolveReport hatası:", e);
+      throw e;
     }
   },
 

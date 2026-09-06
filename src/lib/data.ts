@@ -44,7 +44,9 @@ export type Report = {
   id: string;
   subject: string;
   reporter: string;
+  reporterId?: string;
   target: string;
+  targetId?: string;
   type: string;
   status: ReportStatus;
   created: string;

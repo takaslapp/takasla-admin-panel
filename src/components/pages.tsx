@@ -1047,112 +1047,576 @@ export function ListingsPage() {
 
 
 /* =========================================================================
-   3. ŞİKAYET VE BİLDİRİMLER SAYFASI (Supabase ile Bağlantılı)
+   3. ŞİKAYET VE BİLDİRİMLER SAYFASI (Supabase ile Bağlantılı & Canlı Bildirimli)
    ========================================================================= */
 export function ReportsPage() {
   const fetchDashboardData = useAdminStore((s) => s.fetchDashboardData);
   const reports = useAdminStore((s) => s.reports);
-  const setReportStatus = useAdminStore((s) => s.setReportStatus);
+  const listings = useAdminStore((s) => s.listings);
+  const resolveReport = useAdminStore((s) => s.resolveReport);
+
   const [q, setQ] = useState("");
+  const [activeTab, setActiveTab] = useState<"all" | "acik" | "cozuldu" | "reddedildi">("all");
+
+  // İlan İnceleme Modalı
+  const [inspectListing, setInspectListing] = useState<Listing | null>(null);
+  const [inspectPhotoIndex, setInspectPhotoIndex] = useState(0);
+
+  // Aksiyon ve Bildirim Modalı
+  const [actionModal, setActionModal] = useState<{
+    report: Report;
+    action: "delete_listing" | "dismiss";
+  } | null>(null);
+  const [actionNote, setActionNote] = useState("");
+  const [isActionSubmitting, setIsActionSubmitting] = useState(false);
 
   useEffect(() => {
     fetchDashboardData();
   }, [fetchDashboardData]);
 
-  const rows = useMemo(
-    () =>
-      reports.filter((r) =>
-        `${r.subject} ${r.reporter} ${r.target} ${r.type}`.toLowerCase().includes(q.toLowerCase()),
-      ),
-    [reports, q],
-  );
+  // Sayılar
+  const openCount = useMemo(() => reports.filter((r) => r.status === "acik").length, [reports]);
+  const resolvedCount = useMemo(() => reports.filter((r) => r.status === "cozuldu").length, [reports]);
+  const dismissedCount = useMemo(() => reports.filter((r) => r.status === "reddedildi").length, [reports]);
+
+  const rows = useMemo(() => {
+    return reports.filter((r) => {
+      let matchTab = true;
+      if (activeTab === "acik") matchTab = r.status === "acik";
+      else if (activeTab === "cozuldu") matchTab = r.status === "cozuldu";
+      else if (activeTab === "reddedildi") matchTab = r.status === "reddedildi";
+
+      const matchSearch = `${r.subject} ${r.reporter} ${r.target} ${r.detail} ${r.type}`
+        .toLowerCase()
+        .includes(q.toLowerCase());
+
+      return matchTab && matchSearch;
+    });
+  }, [reports, activeTab, q]);
+
+  // İlanı İncele
+  const handleInspectListing = (report: Report) => {
+    const targetListing = listings.find(
+      (l) => l.id === report.targetId || l.title.toLowerCase() === report.target.toLowerCase()
+    );
+
+    if (targetListing) {
+      setInspectListing(targetListing);
+      setInspectPhotoIndex(0);
+    } else {
+      toast.info(`"${report.target}" başlıklı ilan sistemde aktif bulunamadı (silinmiş veya yayından kaldırılmış olabilir).`);
+    }
+  };
+
+  // Aksiyon Modalını Aç
+  const openActionModal = (report: Report, action: "delete_listing" | "dismiss") => {
+    if (action === "delete_listing") {
+      setActionNote(
+        `Bildirdiğiniz "${report.target}" başlıklı ilan moderasyon ekibimiz tarafından incelendi ve platform kurallarımıza aykırı bulunduğu için yayından kaldırıldı. Topluluğumuzu korumamıza yardımcı olduğunuz için teşekkür ederiz!`
+      );
+    } else {
+      setActionNote(
+        `"${report.target}" hakkındaki bildiriminiz moderasyon ekibimiz tarafından incelenmiş olup platform kurallarına aykırı bir duruma rastlanmamıştır. Hassasiyetiniz ve bildiriminiz için teşekkür ederiz.`
+      );
+    }
+    setActionModal({ report, action });
+  };
+
+  // Aksiyonu Onayla ve Bildir
+  const handleConfirmAction = async () => {
+    if (!actionModal) return;
+    setIsActionSubmitting(true);
+    try {
+      await resolveReport({
+        reportId: actionModal.report.id,
+        action: actionModal.action,
+        customMessage: actionNote.trim(),
+        reporterId: actionModal.report.reporterId,
+        targetTitle: actionModal.report.target,
+        targetListingId: actionModal.report.targetId,
+      });
+
+      if (actionModal.action === "delete_listing") {
+        toast.success(`İlan kaldırıldı ve ${actionModal.report.reporter} kullanıcısına teşekkür bildirimi iletildi.`);
+      } else {
+        toast.info(`Şikayet kapatıldı ve ${actionModal.report.reporter} kullanıcısına bilgi verildi.`);
+      }
+
+      setActionModal(null);
+      if (inspectListing && inspectListing.id === actionModal.report.targetId) {
+        setInspectListing(null);
+      }
+    } catch (err: any) {
+      toast.error(`Aksiyon uygulanamadı: ${err?.message || "Hata oluştu"}`);
+    } finally {
+      setIsActionSubmitting(false);
+    }
+  };
 
   return (
     <AdminShell compact kicker="Moderasyon ve Güvenlik" title="Şikayet ve Bildirimler">
       <div className="grid gap-5">
-        <Panel title="Gelen Şikayetler" subtitle={`${reports.length} toplam bildirim`}>
-          <Toolbar value={q} onChange={setQ} placeholder="Şikayet konusu, şikayet eden veya hedef ara..." />
+        {/* Filtreleme Sekmeleri */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant={activeTab === "all" ? "dark" : "outline"}
+              size="sm"
+              onClick={() => setActiveTab("all")}
+            >
+              Tümü ({reports.length})
+            </Button>
+            <Button
+              variant={activeTab === "acik" ? "dark" : "outline"}
+              size="sm"
+              onClick={() => setActiveTab("acik")}
+              className={openCount > 0 ? "border-rose-400 bg-rose-50/70 text-rose-900 hover:bg-rose-100" : ""}
+            >
+              Açık Şikayetler ({openCount})
+              {openCount > 0 && (
+                <span className="ml-1.5 rounded-full bg-rose-600 px-1.5 py-0.2 text-[10px] font-bold text-white">
+                  {openCount}
+                </span>
+              )}
+            </Button>
+            <Button
+              variant={activeTab === "cozuldu" ? "dark" : "outline"}
+              size="sm"
+              onClick={() => setActiveTab("cozuldu")}
+            >
+              Çözülenler ({resolvedCount})
+            </Button>
+            <Button
+              variant={activeTab === "reddedildi" ? "dark" : "outline"}
+              size="sm"
+              onClick={() => setActiveTab("reddedildi")}
+            >
+              İhlal Görülmeyenler ({dismissedCount})
+            </Button>
+          </div>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              await fetchDashboardData();
+              toast.info("Şikayet listesi yenilendi.");
+            }}
+          >
+            <RotateCcw className="size-3.5 mr-1" /> Yenile
+          </Button>
+        </div>
+
+        <Panel title="Gelen Şikayetler" subtitle={`${rows.length} bildirim listeleniyor`}>
+          <Toolbar value={q} onChange={setQ} placeholder="Şikayet konusu, şikayet eden, hedef ilan veya açıklama ara..." />
 
           {rows.length === 0 ? (
             <div className="py-12 text-center">
               <CheckCircle className="mx-auto size-12 text-emerald-600 mb-2 opacity-80" />
-              <p className="font-semibold text-ink">Harika! Bekleyen açık şikayet bulunmuyor.</p>
-              <p className="text-xs text-muted mt-1">Mobil uygulamadan gelen tüm bildirimler incelendi veya henüz şikayet gelmedi.</p>
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-4"
-                onClick={async () => {
-                  await fetchDashboardData();
-                  toast.info("Şikayet listesi Supabase üzerinden yenilendi.");
-                }}
-              >
-                <RotateCcw className="size-3.5 mr-1" /> Listeyi Yenile
-              </Button>
+              <p className="font-semibold text-ink">Bu filtrede gösterilecek bildirim bulunmuyor.</p>
+              <p className="text-xs text-muted mt-1">Gelen şikayetler çözüldü veya filtreleme kriterine uygun kayıt yok.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[760px] text-left text-sm">
+              <table className="w-full min-w-[900px] text-left text-sm">
                 <thead className="text-xs uppercase tracking-wide text-muted">
                   <tr className="border-b border-line">
-                    <th className="pb-3 font-semibold">Şikayet Nedeni</th>
+                    <th className="pb-3 font-semibold min-w-[240px]">Şikayet Nedeni & Açıklama</th>
                     <th className="pb-3 font-semibold">Bildiren Üye</th>
-                    <th className="pb-3 font-semibold">Şikayet Edilen İlan / Üye</th>
+                    <th className="pb-3 font-semibold min-w-[200px]">Şikayet Edilen İlan</th>
                     <th className="pb-3 font-semibold">Tarih</th>
                     <th className="pb-3 font-semibold">Durum</th>
-                    <th className="pb-3 font-semibold text-right">Aksiyon</th>
+                    <th className="pb-3 font-semibold text-right min-w-[220px]">Moderasyon Aksiyonu</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-line/60">
-                  {rows.map((r) => (
-                    <tr key={r.id} className="hover:bg-shell/30 transition-colors">
-                      <td className="py-3.5">
-                        <p className="font-semibold text-ink">{r.subject}</p>
-                        <p className="text-xs text-muted">{r.detail || r.type}</p>
-                      </td>
-                      <td className="py-3.5 text-muted">{r.reporter}</td>
-                      <td className="py-3.5 font-medium text-ink">{r.target}</td>
-                      <td className="py-3.5 text-xs text-muted">{r.created}</td>
-                      <td className="py-3.5">
-                        <StatusChip tone={reportTone[r.status]}>{r.status}</StatusChip>
-                      </td>
-                      <td className="py-3.5 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          {r.status === "acik" && (
+                  {rows.map((r) => {
+                    const hasListing = listings.some(
+                      (l) => l.id === r.targetId || l.title.toLowerCase() === r.target.toLowerCase()
+                    );
+
+                    return (
+                      <tr key={r.id} className="hover:bg-shell/30 transition-colors">
+                        {/* 1. Şikayet Nedeni & Belirgin Açıklama */}
+                        <td className="py-4">
+                          <div className="flex items-center gap-2">
+                            <span className="inline-flex items-center gap-1 rounded-md bg-rose-50 px-2 py-0.5 text-xs font-semibold text-rose-800 border border-rose-200/80">
+                              <AlertCircle className="size-3 text-rose-600" />
+                              {r.subject}
+                            </span>
+                            <span className="text-[11px] text-muted">{r.type}</span>
+                          </div>
+
+                          {/* Kullanıcı Açıklaması (Belirgin & Okunaklı) */}
+                          {r.detail && (
+                            <div className="mt-2 rounded-xl border border-amber-200/80 bg-amber-50/70 p-2.5 text-xs text-amber-950 max-w-[360px]">
+                              <span className="font-bold text-[10.5px] uppercase tracking-wider text-amber-800 flex items-center gap-1 mb-0.5">
+                                <AlertTriangle className="size-3 text-amber-600 shrink-0" />
+                                Kullanıcı Notu:
+                              </span>
+                              <p className="font-medium leading-relaxed italic text-ink/90">
+                                &ldquo;{r.detail}&rdquo;
+                              </p>
+                            </div>
+                          )}
+                        </td>
+
+                        {/* 2. Bildiren Üye */}
+                        <td className="py-4">
+                          <div className="flex items-center gap-1.5">
+                            <UserIcon className="size-3.5 text-muted" />
+                            <span className="font-medium text-ink">{r.reporter}</span>
+                          </div>
+                        </td>
+
+                        {/* 3. Şikayet Edilen İlan & İncele Butonu */}
+                        <td className="py-4">
+                          <p className="font-semibold text-ink line-clamp-1">{r.target}</p>
+                          <div className="mt-1.5 flex items-center gap-2">
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => {
-                                setReportStatus(r.id, "cozuldu");
-                                toast.success("Şikayet çözüldü olarak işaretlendi.");
-                              }}
+                              className={`h-7 px-2.5 text-xs ${
+                                hasListing
+                                  ? "text-forest bg-forest/5 hover:bg-forest/10 border-forest/30 font-semibold"
+                                  : "text-muted border-line opacity-75"
+                              }`}
+                              onClick={() => handleInspectListing(r)}
+                              title="İlanın fotoğraflarını ve tüm bilgilerini aç"
                             >
-                              Çözüldü
+                              <Eye className="size-3.5 mr-1" />
+                              İlanı İncele
                             </Button>
+                          </div>
+                        </td>
+
+                        {/* 4. Tarih */}
+                        <td className="py-4 text-xs text-muted whitespace-nowrap">
+                          <div className="flex items-center gap-1">
+                            <Clock className="size-3" />
+                            {r.created}
+                          </div>
+                        </td>
+
+                        {/* 5. Durum */}
+                        <td className="py-4 whitespace-nowrap">
+                          {r.status === "acik" ? (
+                            <StatusChip tone="warn">Açık Dosya</StatusChip>
+                          ) : r.status === "cozuldu" ? (
+                            <StatusChip tone="ok">Çözüldü</StatusChip>
+                          ) : (
+                            <StatusChip tone="mute">İhlal Görülmedi</StatusChip>
                           )}
-                          {r.status !== "reddedildi" && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="text-rose-600"
-                              onClick={() => {
-                                setReportStatus(r.id, "reddedildi");
-                                toast.info("Şikayet kapatıldı / reddedildi.");
-                              }}
-                            >
-                              Kapat
-                            </Button>
+                        </td>
+
+                        {/* 6. Moderasyon Aksiyonları */}
+                        <td className="py-4 text-right whitespace-nowrap">
+                          {r.status === "acik" ? (
+                            <div className="flex items-center justify-end gap-1.5">
+                              {/* İlanı Kaldır ve Kullanıcıya Bildir */}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-rose-700 bg-rose-50 hover:bg-rose-100 border-rose-300 font-semibold text-xs"
+                                onClick={() => openActionModal(r, "delete_listing")}
+                                title="İlanı kalıcı sil ve şikayetçiye teşekkür bildirimi ilet"
+                              >
+                                <Trash2 className="size-3.5 mr-1" /> İlanı Kaldır & Çöz
+                              </Button>
+
+                              {/* İhlal Yok / Reddet */}
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-muted hover:text-ink text-xs"
+                                onClick={() => openActionModal(r, "dismiss")}
+                                title="İlanı elleme, şikayetçiye kural ihlali görülmediği bildir"
+                              >
+                                <XCircle className="size-3.5 mr-1" /> İhlal Yok
+                              </Button>
+                            </div>
+                          ) : r.status === "cozuldu" ? (
+                            <div className="flex items-center justify-end gap-1 text-xs font-semibold text-emerald-700">
+                              <CheckCircle className="size-3.5" />
+                              <span>İlan Kaldırıldı & Çözüldü</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-end gap-1 text-xs font-medium text-muted">
+                              <Check className="size-3.5" />
+                              <span>İhlal Görülmedi (Kapatıldı)</span>
+                            </div>
                           )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           )}
         </Panel>
       </div>
+
+      {/* =========================================================
+          1. ŞİKAYET EDİLEN İLANI İNCELEME MODALI
+          ========================================================= */}
+      {inspectListing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-2 sm:p-4 backdrop-blur-xs">
+          <div className="relative flex max-h-[94vh] sm:max-h-[90vh] w-full max-w-2xl lg:max-w-3xl flex-col overflow-hidden rounded-2xl bg-card shadow-2xl ring-1 ring-line animate-in fade-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-line px-4 py-3 sm:px-6 sm:py-3.5">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-rose-50 text-rose-600 ring-1 ring-rose-200">
+                  <AlertTriangle className="size-4" />
+                </span>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm sm:text-base font-bold text-ink truncate">{inspectListing.title}</h3>
+                    <span className="rounded bg-rose-100 px-1.5 py-0.2 text-[10px] font-bold text-rose-800 shrink-0">
+                      Şikayet Edilen İlan
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-muted truncate">İlan ID: {inspectListing.id} · Sahibi: {inspectListing.ownerName}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setInspectListing(null)}
+                className="rounded-lg p-1 text-muted hover:bg-shell hover:text-ink shrink-0"
+              >
+                <XCircle className="size-5" />
+              </button>
+            </div>
+
+            {/* Modal İçerik (Scrollable) */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3.5">
+              {/* Fotoğraf Galerisi */}
+              {inspectListing.images && inspectListing.images.length > 0 ? (
+                <div className="space-y-2.5">
+                  <div className="relative h-48 sm:h-64 w-full overflow-hidden rounded-xl border border-line bg-black/5 dark:bg-black/20 flex items-center justify-center">
+                    <img
+                      src={inspectListing.images[inspectPhotoIndex] || inspectListing.images[0]}
+                      alt={inspectListing.title}
+                      className="size-full object-contain"
+                    />
+                    <span className="absolute bottom-2 right-2 rounded-md bg-black/75 px-2 py-0.5 text-xs font-semibold text-white">
+                      {inspectPhotoIndex + 1} / {inspectListing.images.length}
+                    </span>
+                  </div>
+                  {inspectListing.images.length > 1 && (
+                    <div className="flex gap-2 overflow-x-auto pb-1">
+                      {inspectListing.images.map((img, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setInspectPhotoIndex(idx)}
+                          className={`relative size-14 shrink-0 overflow-hidden rounded-lg border-2 transition-all ${
+                            inspectPhotoIndex === idx
+                              ? "border-forest shadow-sm scale-105"
+                              : "border-line opacity-70 hover:opacity-100"
+                          }`}
+                        >
+                          <img src={img} alt="" className="size-full object-cover" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed border-line p-6 text-center text-muted">
+                  <Package className="mx-auto size-8 opacity-30 mb-1.5" />
+                  <p className="text-xs sm:text-sm">Bu ilan için fotoğraf yüklenmemiş.</p>
+                </div>
+              )}
+
+              {/* Bilgi Izgarası */}
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                <div className="rounded-xl border border-line bg-shell/30 p-3">
+                  <span className="text-[11px] font-medium text-muted">İlan Sahibi</span>
+                  <p className="mt-0.5 font-semibold text-sm text-ink">{inspectListing.ownerName}</p>
+                  <p className="text-xs text-muted font-mono mt-0.5 flex items-center gap-1">
+                    <Phone className="size-3 text-muted" /> {inspectListing.ownerPhone}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-line bg-shell/30 p-3">
+                  <span className="text-[11px] font-medium text-muted">Kategori & Durum</span>
+                  <p className="mt-0.5 font-semibold text-sm text-ink">{inspectListing.category}</p>
+                  <p className="text-xs text-muted mt-0.5">Kondisyon: {inspectListing.condition}</p>
+                </div>
+                <div className="rounded-xl border border-line bg-shell/30 p-3">
+                  <span className="text-[11px] font-medium text-muted">Konum & Eklenme</span>
+                  <p className="mt-0.5 font-semibold text-sm text-ink flex items-center gap-1">
+                    <MapPin className="size-3.5 text-muted" /> {inspectListing.city}
+                  </p>
+                  <p className="text-xs text-muted mt-0.5 flex items-center gap-1">
+                    <Clock className="size-3 text-muted" /> {inspectListing.created}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-line bg-shell/30 p-3">
+                  <span className="text-[11px] font-medium text-muted">Yayın Durumu</span>
+                  <div className="mt-1">
+                    <StatusChip tone={inspectListing.status === "approved" || inspectListing.status === "yayinda" ? "ok" : "warn"}>
+                      {inspectListing.status === "approved" || inspectListing.status === "yayinda" ? "Yayında" : inspectListing.status}
+                    </StatusChip>
+                  </div>
+                </div>
+              </div>
+
+              {/* Takas Tercihi */}
+              <div className="rounded-xl border border-emerald-200/70 bg-emerald-50/70 p-3">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-800 flex items-center gap-1.5">
+                  <ArrowLeftRight className="size-3.5 text-emerald-700" />
+                  İstenen Takas Seçeneği
+                </span>
+                <p className="mt-1 text-sm font-semibold text-emerald-950">{inspectListing.wants}</p>
+              </div>
+
+              {/* Açıklama */}
+              <div className="rounded-xl border border-line bg-shell/20 p-3.5">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-muted">Ürün Açıklaması</span>
+                <p className="mt-1.5 whitespace-pre-wrap text-xs sm:text-sm text-ink/90 leading-relaxed max-h-36 overflow-y-auto">
+                  {inspectListing.description || "Açıklama girilmemiş."}
+                </p>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2 border-t border-line bg-shell/30 px-4 py-3 sm:px-6 sm:py-3">
+              <Button variant="outline" size="sm" onClick={() => setInspectListing(null)} className="w-full sm:w-auto">
+                Kapat
+              </Button>
+              <div className="flex items-center justify-end gap-2 w-full sm:w-auto">
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  className="bg-rose-600 hover:bg-rose-700 text-white w-full sm:w-auto"
+                  onClick={() => {
+                    const relatedReport = reports.find((r) => r.targetId === inspectListing.id || r.target === inspectListing.title);
+                    if (relatedReport) {
+                      setInspectListing(null);
+                      openActionModal(relatedReport, "delete_listing");
+                    } else {
+                      toast.error("Bu ilana bağlı aktif şikayet kaydı bulunamadı.");
+                    }
+                  }}
+                >
+                  <Trash2 className="size-3.5 mr-1" /> Bu İlanı Kaldır & Şikayeti Çöz
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================
+          2. ŞİKAYETİ ÇÖZME / KAPATMA & KULLANICIYA BİLDİRİM MODALI
+          ========================================================= */}
+      {actionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-lg rounded-2xl bg-card p-6 shadow-2xl ring-1 ring-line animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-start gap-3.5">
+              <div
+                className={`grid size-11 shrink-0 place-items-center rounded-xl ring-1 ${
+                  actionModal.action === "delete_listing"
+                    ? "bg-rose-50 text-rose-600 ring-rose-200"
+                    : "bg-slate-100 text-slate-700 ring-slate-200"
+                }`}
+              >
+                {actionModal.action === "delete_listing" ? (
+                  <Trash2 className="size-5" />
+                ) : (
+                  <CheckCircle className="size-5" />
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-base font-bold text-ink">
+                  {actionModal.action === "delete_listing"
+                    ? "İlanı Kaldır ve Şikayeti Çöz"
+                    : "Şikayeti Kapat (İhlal Tespit Edilmedi)"}
+                </h3>
+                <p className="mt-1 text-xs text-muted leading-relaxed">
+                  Şikayet Eden: <strong className="text-ink font-semibold">{actionModal.report.reporter}</strong> · Hedef: <strong className="text-ink font-semibold">{actionModal.report.target}</strong>
+                </p>
+              </div>
+            </div>
+
+            {/* Bilgilendirme Bannerı */}
+            <div
+              className={`mt-4 rounded-xl border p-3 text-xs leading-relaxed ${
+                actionModal.action === "delete_listing"
+                  ? "border-rose-200 bg-rose-50/70 text-rose-900"
+                  : "border-slate-200 bg-slate-50 text-slate-700"
+              }`}
+            >
+              {actionModal.action === "delete_listing" ? (
+                <p className="flex items-start gap-2">
+                  <AlertTriangle className="size-4 shrink-0 text-rose-600 mt-0.5" />
+                  <span>
+                    İlgili ilan sistemden tamamen silinecektir ve şikayet eden üyeye teşekkür ve durum bildirimi iletilecektir.
+                  </span>
+                </p>
+              ) : (
+                <p className="flex items-start gap-2">
+                  <Check className="size-4 shrink-0 text-slate-600 mt-0.5" />
+                  <span>
+                    İlanda herhangi bir kural ihlali görülmediği için ilan yayında kalacak ve şikayet eden üyeye durum bildirilecektir.
+                  </span>
+                </p>
+              )}
+            </div>
+
+            {/* Bildirim Önizlemesi & Düzenleme */}
+            <div className="mt-4">
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-muted mb-1.5">
+                Kullanıcıya İletilecek Mobil Bildirim Mesajı:
+              </label>
+              <textarea
+                value={actionNote}
+                onChange={(e) => setActionNote(e.target.value)}
+                rows={3}
+                className="w-full rounded-xl border border-line bg-shell/50 p-3 text-xs sm:text-sm text-ink outline-none focus:ring-2 focus:ring-forest"
+                placeholder="Kullanıcıya gidecek mesaj..."
+              />
+              <p className="mt-1 text-[10.5px] text-muted">
+                Bu mesaj, şikayeti ileten üyenin mobil bildirim menüsüne anında düşecektir.
+              </p>
+            </div>
+
+            {/* Butonlar */}
+            <div className="mt-5 flex items-center justify-end gap-2.5">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isActionSubmitting}
+                onClick={() => setActionModal(null)}
+              >
+                Vazgeç
+              </Button>
+              <Button
+                size="sm"
+                disabled={isActionSubmitting}
+                className={
+                  actionModal.action === "delete_listing"
+                    ? "bg-rose-600 hover:bg-rose-700 text-white"
+                    : "bg-forest hover:bg-forest/90 text-white"
+                }
+                onClick={handleConfirmAction}
+              >
+                {isActionSubmitting ? (
+                  "İşleniyor..."
+                ) : actionModal.action === "delete_listing" ? (
+                  <>
+                    <Trash2 className="size-3.5 mr-1.5" /> İlanı Kaldır ve Bildir
+                  </>
+                ) : (
+                  <>
+                    <Check className="size-3.5 mr-1.5" /> Şikayeti Kapat ve Bildir
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </AdminShell>
   );
 }
@@ -1257,7 +1721,7 @@ export function AnalyticsPage() {
           </Panel>
           <Panel title="Toplam İlan">
             <p className="text-4xl font-extrabold tabular-nums text-forest mt-1">{listings.length}</p>
-            <p className="text-xs text-muted mt-1">{listings.filter((l) => l.status === "yayinda").length} aktif yayında</p>
+            <p className="text-xs text-muted mt-1">{listings.filter((l) => l.status === "approved" || l.status === "yayinda").length} aktif yayında</p>
           </Panel>
           <Panel title="Takas Teklifleri">
             <p className="text-4xl font-extrabold tabular-nums text-forest mt-1">{swapStats.totalOffers}</p>
