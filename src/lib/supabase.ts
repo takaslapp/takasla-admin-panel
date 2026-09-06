@@ -3,7 +3,7 @@ import WebSocket from "ws";
 
 const supabaseUrl =
   import.meta.env.VITE_SUPABASE_URL ||
-  "http://supabasekong-0dfraqtznuhdxtpzvidcex9d.179.198.200.147.sslip.io";
+  "https://supabase.takaslapp.com";
 
 const supabaseAnonKey =
   import.meta.env.VITE_SUPABASE_ANON_KEY ||
