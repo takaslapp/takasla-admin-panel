@@ -225,15 +225,26 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
 
   approveListing: async (id: string) => {
     const listing = get().listings.find((l) => l.id === id);
-    set((s) => ({
-      listings: s.listings.map((l) => (l.id === id ? { ...l, status: "approved", adminNote: undefined } : l)),
-    }));
     try {
-      await supabase.from("listings").update({
-        status: "approved",
-        is_active: true,
-        approved_at: new Date().toISOString(),
-      }).eq("id", id);
+      const { data, error } = await supabase
+        .from("listings")
+        .update({
+          status: "approved",
+          is_active: true,
+          admin_note: null,
+          approved_at: new Date().toISOString(),
+        })
+        .eq("id", id)
+        .select();
+
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error("Veritabanı güncellenemedi (RLS politikasını kontrol edin)");
+      }
+
+      set((s) => ({
+        listings: s.listings.map((l) => (l.id === id ? { ...l, status: "approved", adminNote: undefined } : l)),
+      }));
 
       if (listing && listing.ownerId) {
         try {
@@ -256,18 +267,28 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
 
   requestRevision: async (id: string, note: string) => {
     const listing = get().listings.find((l) => l.id === id);
-    set((s) => ({
-      listings: s.listings.map((l) =>
-        l.id === id ? { ...l, status: "revision_requested", adminNote: note } : l
-      ),
-    }));
     try {
-      await supabase.from("listings").update({
-        status: "revision_requested",
-        is_active: false,
-        admin_note: note,
-        reviewed_at: new Date().toISOString(),
-      }).eq("id", id);
+      const { data, error } = await supabase
+        .from("listings")
+        .update({
+          status: "revision_requested",
+          is_active: false,
+          admin_note: note,
+          reviewed_at: new Date().toISOString(),
+        })
+        .eq("id", id)
+        .select();
+
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error("Veritabanı güncellenemedi (RLS politikasını kontrol edin)");
+      }
+
+      set((s) => ({
+        listings: s.listings.map((l) =>
+          l.id === id ? { ...l, status: "revision_requested", adminNote: note } : l
+        ),
+      }));
 
       if (listing && listing.ownerId) {
         try {
@@ -290,18 +311,28 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
 
   rejectListing: async (id: string, reason: string) => {
     const listing = get().listings.find((l) => l.id === id);
-    set((s) => ({
-      listings: s.listings.map((l) =>
-        l.id === id ? { ...l, status: "rejected", rejectReason: reason, adminNote: reason } : l
-      ),
-    }));
     try {
-      await supabase.from("listings").update({
-        status: "rejected",
-        is_active: false,
-        admin_note: reason,
-        rejected_at: new Date().toISOString(),
-      }).eq("id", id);
+      const { data, error } = await supabase
+        .from("listings")
+        .update({
+          status: "rejected",
+          is_active: false,
+          admin_note: reason,
+          rejected_at: new Date().toISOString(),
+        })
+        .eq("id", id)
+        .select();
+
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error("Veritabanı güncellenemedi (RLS politikasını kontrol edin)");
+      }
+
+      set((s) => ({
+        listings: s.listings.map((l) =>
+          l.id === id ? { ...l, status: "rejected", rejectReason: reason, adminNote: reason } : l
+        ),
+      }));
 
       if (listing && listing.ownerId) {
         try {

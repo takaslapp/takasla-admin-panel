@@ -1,5 +1,6 @@
 import {
   AlertCircle,
+  ArrowLeftRight,
   Check,
   Edit3,
   AlertTriangle,
@@ -234,10 +235,14 @@ export function ListingsPage() {
 
   // Onaylama İşlemi
   const handleApprove = async (id: string, title: string) => {
-    await approveListing(id);
-    toast.success(`"${title}" başlıklı ilan başarıyla onaylandı ve vitrinde yayına alındı.`);
-    if (previewListing?.id === id) {
-      setPreviewListing((prev) => (prev ? { ...prev, status: "approved" } : null));
+    try {
+      await approveListing(id);
+      toast.success(`"${title}" başlıklı ilan başarıyla onaylandı ve vitrinde yayına alındı.`);
+      if (previewListing?.id === id) {
+        setPreviewListing((prev) => (prev ? { ...prev, status: "approved" } : null));
+      }
+    } catch (err: any) {
+      toast.error(`Onaylama hatası: ${err?.message || "İşlem tamamlanamadı"}`);
     }
   };
 
@@ -254,12 +259,16 @@ export function ListingsPage() {
       toast.error("Lütfen kullanıcıya iletilecek düzenleme notunu yazın.");
       return;
     }
-    await requestRevision(revisionListing.id, revisionNote.trim());
-    toast.success(`"${revisionListing.title}" için revizyon talebi kullanıcıya bildirim olarak gönderildi.`);
-    setRevisionListing(null);
-    setRevisionNote("");
-    if (previewListing?.id === revisionListing.id) {
-      setPreviewListing((prev) => (prev ? { ...prev, status: "revision_requested", adminNote: revisionNote.trim() } : null));
+    try {
+      await requestRevision(revisionListing.id, revisionNote.trim());
+      toast.success(`"${revisionListing.title}" için revizyon talebi kullanıcıya bildirim olarak gönderildi.`);
+      setRevisionListing(null);
+      setRevisionNote("");
+      if (previewListing?.id === revisionListing.id) {
+        setPreviewListing((prev) => (prev ? { ...prev, status: "revision_requested", adminNote: revisionNote.trim() } : null));
+      }
+    } catch (err: any) {
+      toast.error(`Düzenleme talebi gönderilemedi: ${err?.message || "İşlem başarısız"}`);
     }
   };
 
@@ -276,12 +285,16 @@ export function ListingsPage() {
       toast.error("Lütfen red gerekçesini belirtin.");
       return;
     }
-    await rejectListing(rejectListingItem.id, rejectReason.trim());
-    toast.error(`"${rejectListingItem.title}" başlıklı ilan reddedildi ve kullanıcıya bildirildi.`);
-    setRejectListingItem(null);
-    setRejectReason("");
-    if (previewListing?.id === rejectListingItem.id) {
-      setPreviewListing((prev) => (prev ? { ...prev, status: "rejected" } : null));
+    try {
+      await rejectListing(rejectListingItem.id, rejectReason.trim());
+      toast.error(`"${rejectListingItem.title}" başlıklı ilan reddedildi ve kullanıcıya bildirildi.`);
+      setRejectListingItem(null);
+      setRejectReason("");
+      if (previewListing?.id === rejectListingItem.id) {
+        setPreviewListing((prev) => (prev ? { ...prev, status: "rejected" } : null));
+      }
+    } catch (err: any) {
+      toast.error(`Reddetme işlemi başarısız: ${err?.message || "İşlem tamamlanamadı"}`);
     }
   };
 
@@ -439,9 +452,10 @@ export function ListingsPage() {
 
                         {/* 4. Takas Tercihi */}
                         <td className="py-3.5 max-w-[200px]">
-                          <p className="text-xs font-medium text-emerald-900 bg-emerald-50 rounded-lg p-1.5 border border-emerald-200/60 line-clamp-2">
-                            🔄 {l.wants}
-                          </p>
+                          <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-900 bg-emerald-50/80 rounded-lg px-2 py-1.5 border border-emerald-200/60">
+                            <ArrowLeftRight className="size-3 text-emerald-700 shrink-0" />
+                            <span className="line-clamp-2">{l.wants}</span>
+                          </div>
                         </td>
 
                         {/* 5. Moderasyon Durumu */}
@@ -607,40 +621,40 @@ export function ListingsPage() {
           1. DETAYLI İLAN İNCELEME MODALI (Görseller, Açıklama & İşlemler)
           ========================================================= */}
       {previewListing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs">
-          <div className="relative flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-card shadow-2xl ring-1 ring-line">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-2 sm:p-4 backdrop-blur-xs">
+          <div className="relative flex max-h-[94vh] sm:max-h-[90vh] w-full max-w-2xl lg:max-w-3xl flex-col overflow-hidden rounded-2xl bg-card shadow-2xl ring-1 ring-line">
             {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-line px-6 py-4">
-              <div className="flex items-center gap-2.5">
-                <span className="grid size-8 place-items-center rounded-lg bg-forest/10 text-forest">
+            <div className="flex items-center justify-between border-b border-line px-4 py-3 sm:px-6 sm:py-3.5">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-forest/10 text-forest">
                   <Package className="size-4" />
                 </span>
-                <div>
-                  <h3 className="text-base font-bold text-ink line-clamp-1">{previewListing.title}</h3>
-                  <p className="text-xs text-muted">İlan ID: {previewListing.id}</p>
+                <div className="min-w-0">
+                  <h3 className="text-sm sm:text-base font-bold text-ink truncate">{previewListing.title}</h3>
+                  <p className="text-[11px] text-muted truncate">İlan ID: {previewListing.id}</p>
                 </div>
               </div>
               <button
                 onClick={() => setPreviewListing(null)}
-                className="rounded-lg p-1.5 text-muted hover:bg-shell hover:text-ink"
+                className="rounded-lg p-1 text-muted hover:bg-shell hover:text-ink shrink-0"
               >
                 <XCircle className="size-5" />
               </button>
             </div>
 
             {/* Modal İçerik (Scrollable) */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-5">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3.5">
               {/* Fotoğraf Galerisi */}
               {previewListing.images && previewListing.images.length > 0 ? (
-                <div className="space-y-3">
+                <div className="space-y-2.5">
                   {/* Büyük Önizleme */}
-                  <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-line bg-black/5">
+                  <div className="relative h-48 sm:h-64 w-full overflow-hidden rounded-xl border border-line bg-black/5 dark:bg-black/20 flex items-center justify-center">
                     <img
                       src={previewListing.images[selectedPhotoIndex] || previewListing.images[0]}
                       alt={previewListing.title}
                       className="size-full object-contain"
                     />
-                    <span className="absolute bottom-2 right-2 rounded-md bg-black/70 px-2 py-0.5 text-xs font-semibold text-white">
+                    <span className="absolute bottom-2 right-2 rounded-md bg-black/75 px-2 py-0.5 text-xs font-semibold text-white">
                       {selectedPhotoIndex + 1} / {previewListing.images.length}
                     </span>
                   </div>
@@ -653,7 +667,7 @@ export function ListingsPage() {
                           key={idx}
                           type="button"
                           onClick={() => setSelectedPhotoIndex(idx)}
-                          className={`relative size-16 shrink-0 overflow-hidden rounded-lg border-2 transition-all ${
+                          className={`relative size-14 shrink-0 overflow-hidden rounded-lg border-2 transition-all ${
                             selectedPhotoIndex === idx
                               ? "border-forest shadow-sm scale-105"
                               : "border-line opacity-70 hover:opacity-100"
@@ -666,35 +680,41 @@ export function ListingsPage() {
                   )}
                 </div>
               ) : (
-                <div className="rounded-xl border border-dashed border-line p-8 text-center text-muted">
-                  <Package className="mx-auto size-10 opacity-30 mb-2" />
-                  <p className="text-sm">Bu ilan için yüklenmiş fotoğraf bulunamadı.</p>
+                <div className="rounded-xl border border-dashed border-line p-6 text-center text-muted">
+                  <Package className="mx-auto size-8 opacity-30 mb-1.5" />
+                  <p className="text-xs sm:text-sm">Bu ilan için yüklenmiş fotoğraf bulunamadı.</p>
                 </div>
               )}
 
               {/* İlan Bilgi Izgarası */}
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="rounded-xl border border-line bg-shell/30 p-3.5">
-                  <span className="text-xs font-medium text-muted">İlan Sahibi</span>
-                  <p className="mt-1 font-semibold text-ink">{previewListing.ownerName}</p>
-                  <p className="text-xs text-muted font-mono mt-0.5">📞 {previewListing.ownerPhone}</p>
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                <div className="rounded-xl border border-line bg-shell/30 p-3">
+                  <span className="text-[11px] font-medium text-muted">İlan Sahibi</span>
+                  <p className="mt-0.5 font-semibold text-sm text-ink">{previewListing.ownerName}</p>
+                  <p className="text-xs text-muted font-mono mt-0.5 flex items-center gap-1">
+                    <Phone className="size-3 text-muted" /> {previewListing.ownerPhone}
+                  </p>
                 </div>
 
-                <div className="rounded-xl border border-line bg-shell/30 p-3.5">
-                  <span className="text-xs font-medium text-muted">Kategori & Durum</span>
-                  <p className="mt-1 font-semibold text-ink">{previewListing.category}</p>
+                <div className="rounded-xl border border-line bg-shell/30 p-3">
+                  <span className="text-[11px] font-medium text-muted">Kategori & Durum</span>
+                  <p className="mt-0.5 font-semibold text-sm text-ink">{previewListing.category}</p>
                   <p className="text-xs text-muted mt-0.5">Kondisyon: {previewListing.condition}</p>
                 </div>
 
-                <div className="rounded-xl border border-line bg-shell/30 p-3.5">
-                  <span className="text-xs font-medium text-muted">Konum & Eklenme Tarihi</span>
-                  <p className="mt-1 font-semibold text-ink">📍 {previewListing.city}</p>
-                  <p className="text-xs text-muted mt-0.5">🕒 {previewListing.created}</p>
+                <div className="rounded-xl border border-line bg-shell/30 p-3">
+                  <span className="text-[11px] font-medium text-muted">Konum & Eklenme Tarihi</span>
+                  <p className="mt-0.5 font-semibold text-sm text-ink flex items-center gap-1">
+                    <MapPin className="size-3.5 text-muted" /> {previewListing.city}
+                  </p>
+                  <p className="text-xs text-muted mt-0.5 flex items-center gap-1">
+                    <Clock className="size-3 text-muted" /> {previewListing.created}
+                  </p>
                 </div>
 
-                <div className="rounded-xl border border-line bg-shell/30 p-3.5">
-                  <span className="text-xs font-medium text-muted">Mevcut Moderasyon Durumu</span>
-                  <div className="mt-1.5">
+                <div className="rounded-xl border border-line bg-shell/30 p-3">
+                  <span className="text-[11px] font-medium text-muted">Mevcut Moderasyon Durumu</span>
+                  <div className="mt-1">
                     {previewListing.status === "pending" ? (
                       <StatusChip tone="warn">Onay Bekliyor</StatusChip>
                     ) : previewListing.status === "revision_requested" ? (
@@ -709,36 +729,39 @@ export function ListingsPage() {
               </div>
 
               {/* Takas Tercihi */}
-              <div className="rounded-xl border border-emerald-200/70 bg-emerald-50/60 p-3.5">
-                <span className="text-xs font-bold uppercase tracking-wider text-emerald-800">İstenen Takas Seçeneği</span>
-                <p className="mt-1 text-sm font-semibold text-emerald-950">🔄 {previewListing.wants}</p>
+              <div className="rounded-xl border border-emerald-200/70 bg-emerald-50/70 p-3">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-800 flex items-center gap-1.5">
+                  <ArrowLeftRight className="size-3.5 text-emerald-700" />
+                  İstenen Takas Seçeneği
+                </span>
+                <p className="mt-1 text-sm font-semibold text-emerald-950">{previewListing.wants}</p>
               </div>
 
               {/* Açıklama */}
-              <div className="rounded-xl border border-line bg-shell/20 p-4">
-                <span className="text-xs font-bold uppercase tracking-wider text-muted">Ürün Açıklaması</span>
-                <p className="mt-2 whitespace-pre-wrap text-sm text-ink/90 leading-relaxed">
+              <div className="rounded-xl border border-line bg-shell/20 p-3.5">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-muted">Ürün Açıklaması</span>
+                <p className="mt-1.5 whitespace-pre-wrap text-xs sm:text-sm text-ink/90 leading-relaxed max-h-36 overflow-y-auto">
                   {previewListing.description || "Açıklama girilmemiş."}
                 </p>
               </div>
 
               {/* Mevcut Yönetici Notu (Varsa) */}
               {previewListing.adminNote && (
-                <div className="rounded-xl border border-amber-300 bg-amber-50 p-4">
+                <div className="rounded-xl border border-amber-300 bg-amber-50/90 p-3.5">
                   <span className="text-xs font-bold uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
                     <AlertCircle className="size-4 text-amber-700" />
                     Mevcut Yönetici Revize / Red Notu
                   </span>
-                  <p className="mt-1 text-sm text-amber-950 leading-relaxed font-medium">
+                  <p className="mt-1 text-xs sm:text-sm text-amber-950 leading-relaxed font-medium">
                     {previewListing.adminNote}
                   </p>
                 </div>
               )}
             </div>
 
-            {/* Modal Footer (Aksiyon Butonları) */}
-            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line bg-shell/30 px-6 py-3.5">
-              <Button variant="outline" onClick={() => setPreviewListing(null)}>
+            {/* Modal Footer (Aksiyon Butonları - Responsive) */}
+            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2 border-t border-line bg-shell/30 px-4 py-3 sm:px-6 sm:py-3">
+              <Button variant="outline" size="sm" onClick={() => setPreviewListing(null)} className="w-full sm:w-auto">
                 Kapat
               </Button>
 
