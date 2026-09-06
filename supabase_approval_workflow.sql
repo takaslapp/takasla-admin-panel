@@ -31,3 +31,12 @@ BEGIN
   EXCEPTION WHEN others THEN NULL;
   END;
 END $$;
+
+
+-- 5. listings tablosu için Admin Paneli Güncelleme ve Silme İzinleri (RLS)
+-- Admin paneli anon key ile bağlandığında onaylama, revize ve silme işlemlerinin veritabanına işlenebilmesi için:
+DROP POLICY IF EXISTS "Allow all update on listings" ON public.listings;
+CREATE POLICY "Allow all update on listings" ON public.listings FOR UPDATE USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow all delete on listings" ON public.listings;
+CREATE POLICY "Allow all delete on listings" ON public.listings FOR DELETE USING (true);
