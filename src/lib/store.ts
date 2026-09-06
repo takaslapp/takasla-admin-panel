@@ -29,6 +29,7 @@ interface AdminStore {
   fetchDashboardData: () => Promise<void>;
   setUserStatus: (id: string, status: "aktif" | "yeni") => Promise<void>;
   approveListing: (id: string) => Promise<void>;
+  requestRevision: (id: string, note: string) => Promise<void>;
   rejectListing: (id: string, reason: string) => Promise<void>;
   deleteListing: (id: string) => Promise<void>;
   setReportStatus: (id: string, status: ReportStatus) => Promise<void>;
@@ -51,15 +52,18 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
   fetchDashboardData: async () => {
     set({ isLoading: true });
     try {
-      // 1. Supabase Profiles, Listings, Swap Offers
+      // 1. Supabase Profiles, Listings (ile listing_images), Swap Offers
       const [profilesRes, listingsRes, offersRes] = await Promise.all([
         supabase.from("profiles").select("*").order("created_at", { ascending: false }),
-        supabase.from("listings").select("*").order("created_at", { ascending: false }),
+        supabase
+          .from("listings")
+          .select("*, listing_images(image_url, display_order)")
+          .order("created_at", { ascending: false }),
         supabase.from("swap_offers").select("id, status"),
       ]);
 
       const rawProfiles = profilesRes.data || [];
-      const rawListings = listingsRes.data || [];
+      const rawListings = (listingsRes.data || []) as any[];
       const rawOffers = offersRes.data || [];
 
       // Her kullanıcının gerçek ilan sayısını hesapla
@@ -112,9 +116,29 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
           const dt = l.created_at ? new Date(l.created_at) : new Date();
           const createdFormatted = `${dt.toLocaleDateString("tr-TR")} ${dt.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}`;
 
-          let status: ListingStatus = "yayinda";
-          if (l.is_active === false) {
-            status = "reddedildi";
+          // Fotoğrafları sıralı olarak çıkar
+          const imagesList: string[] = [];
+          if (l.listing_images && Array.isArray(l.listing_images)) {
+            const sortedImages = [...l.listing_images].sort(
+              (a, b) => ((a.display_order ?? 0) - (b.display_order ?? 0))
+            );
+            for (const img of sortedImages) {
+              if (img.image_url) imagesList.push(img.image_url);
+            }
+          }
+
+          // Durum tespiti (pending, approved, revision_requested, rejected, deleted)
+          let status: ListingStatus = "approved";
+          if (l.status) {
+            const s = String(l.status).toLowerCase();
+            if (s === "pending" || s === "incelemede") status = "pending";
+            else if (s === "approved" || s === "yayinda") status = "approved";
+            else if (s === "revision_requested" || s === "revize_istendi") status = "revision_requested";
+            else if (s === "rejected" || s === "reddedildi") status = "rejected";
+            else if (s === "deleted" || s === "silindi") status = "deleted";
+            else status = s as ListingStatus;
+          } else {
+            status = l.is_active === false ? "rejected" : "approved";
           }
 
           return {
@@ -130,6 +154,8 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
             description: l.description || "Açıklama girilmedi.",
             status,
             created: createdFormatted,
+            adminNote: l.admin_note || undefined,
+            images: imagesList,
           };
         });
       }
@@ -198,33 +224,94 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
   },
 
   approveListing: async (id: string) => {
+    const listing = get().listings.find((l) => l.id === id);
     set((s) => ({
-      listings: s.listings.map((l) => (l.id === id ? { ...l, status: "yayinda" } : l)),
+      listings: s.listings.map((l) => (l.id === id ? { ...l, status: "approved", adminNote: undefined } : l)),
     }));
     try {
-      await supabase.from("listings").update({ is_active: true }).eq("id", id);
+      await supabase.from("listings").update({
+        status: "approved",
+        is_active: true,
+        approved_at: new Date().toISOString(),
+      }).eq("id", id);
+
+      if (listing && listing.ownerId) {
+        try {
+          await supabase.from("notifications").insert({
+            user_id: listing.ownerId,
+            title: `İlanınız Yayında: ${listing.title}`,
+            message: `"${listing.title}" başlıklı ilanınız incelendi ve vitrinde yayına alındı.`,
+            type: "listing_approved",
+            notif_type: "listing_approved",
+            related_id: id,
+          });
+        } catch (notifErr) {
+          console.warn("Notification insert fallback:", notifErr);
+        }
+      }
     } catch (e) {
       console.error("approveListing hatası:", e);
+    }
+  },
+
+  requestRevision: async (id: string, note: string) => {
+    const listing = get().listings.find((l) => l.id === id);
+    set((s) => ({
+      listings: s.listings.map((l) =>
+        l.id === id ? { ...l, status: "revision_requested", adminNote: note } : l
+      ),
+    }));
+    try {
+      await supabase.from("listings").update({
+        status: "revision_requested",
+        is_active: false,
+        admin_note: note,
+        reviewed_at: new Date().toISOString(),
+      }).eq("id", id);
+
+      if (listing && listing.ownerId) {
+        try {
+          await supabase.from("notifications").insert({
+            user_id: listing.ownerId,
+            title: `İlanınızı Gözden Geçirin: ${listing.title}`,
+            message: `Yönetici Notu: ${note}`,
+            type: "listing_revision",
+            notif_type: "listing_revision",
+            related_id: id,
+          });
+        } catch (notifErr) {
+          console.warn("Notification insert fallback:", notifErr);
+        }
+      }
+    } catch (e) {
+      console.error("requestRevision hatası:", e);
     }
   },
 
   rejectListing: async (id: string, reason: string) => {
     const listing = get().listings.find((l) => l.id === id);
     set((s) => ({
-      listings: s.listings.map((l) => (l.id === id ? { ...l, status: "reddedildi", rejectReason: reason } : l)),
+      listings: s.listings.map((l) =>
+        l.id === id ? { ...l, status: "rejected", rejectReason: reason, adminNote: reason } : l
+      ),
     }));
     try {
-      // 1. İlanı deaktif et
-      await supabase.from("listings").update({ is_active: false }).eq("id", id);
+      await supabase.from("listings").update({
+        status: "rejected",
+        is_active: false,
+        admin_note: reason,
+        rejected_at: new Date().toISOString(),
+      }).eq("id", id);
 
-      // 2. Kullanıcıya bildirim gönder (kullanıcının bildirim ekranına düşsün)
       if (listing && listing.ownerId) {
         try {
           await supabase.from("notifications").insert({
             user_id: listing.ownerId,
             title: `İlanınız Onaylanmadı: ${listing.title}`,
-            message: `"${listing.title}" başlıklı ilanınız incelendi ve reddedildi.\nNeden: ${reason}`,
+            message: `"${listing.title}" başlıklı ilanınız platform kurallarına uygun görülmedi.
+Sebep: ${reason}`,
             type: "listing_rejected",
+            notif_type: "listing_rejected",
             related_id: id,
           });
         } catch (notifErr) {
@@ -241,7 +328,8 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
       listings: s.listings.filter((l) => l.id !== id),
     }));
     try {
-      // Supabase'den ilanı sil
+      await supabase.from("favorites").delete().eq("listing_id", id);
+      await supabase.from("listing_images").delete().eq("listing_id", id);
       await supabase.from("listings").delete().eq("id", id);
     } catch (e) {
       console.error("deleteListing hatası:", e);
@@ -268,7 +356,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
 if (typeof window !== "undefined") {
   useAdminStore.getState().fetchDashboardData();
 
-  // Supabase Realtime Dinleyici: Şikayet ve İlan güncellemelerini anında ekrana yansıt
+  // Supabase Realtime Dinleyici: Şikayet, İlan ve Profil güncellemelerini anında ekrana yansıt
   try {
     supabase
       .channel("admin-realtime-sync")

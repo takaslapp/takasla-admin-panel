@@ -1,5 +1,12 @@
 export type UserStatus = "aktif" | "yeni";
-export type ListingStatus = "yayinda" | "incelemede" | "reddedildi" | "silindi";
+export type ListingStatus =
+  | "pending"
+  | "approved"
+  | "revision_requested"
+  | "rejected"
+  | "deleted"
+  | "yayinda"
+  | "incelemede";
 export type ReportStatus = "acik" | "inceleniyor" | "cozuldu" | "reddedildi";
 export type SuggestionStatus = "yeni" | "degerlendiriliyor" | "uygulandi" | "arsiv";
 
@@ -28,6 +35,8 @@ export type Listing = {
   description: string;
   status: ListingStatus;
   created: string;
+  adminNote?: string;
+  images: string[];
   rejectReason?: string;
 };
 
