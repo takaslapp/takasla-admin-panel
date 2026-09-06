@@ -206,6 +206,9 @@ export function ListingsPage() {
   const [rejectListingItem, setRejectListingItem] = useState<Listing | null>(null);
   const [rejectReason, setRejectReason] = useState("");
 
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   useEffect(() => {
     fetchDashboardData();
   }, [fetchDashboardData]);
@@ -298,14 +301,26 @@ export function ListingsPage() {
     }
   };
 
-  // Silme İşlemi
-  const handleDelete = async (id: string, title: string) => {
-    if (confirm(`"${title}" başlıklı ilanı kalıcı olarak silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`)) {
-      await deleteListing(id);
-      toast.info(`İlan sistemden kalıcı olarak silindi.`);
-      if (previewListing?.id === id) {
+  // Silme İşlemi Başlat
+  const handleOpenDelete = (id: string, title: string) => {
+    setDeleteTarget({ id, title });
+  };
+
+  // Silme Onaylama
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      await deleteListing(deleteTarget.id);
+      toast.success(`"${deleteTarget.title}" başlıklı ilan sistemden kalıcı olarak silindi.`);
+      if (previewListing?.id === deleteTarget.id) {
         setPreviewListing(null);
       }
+      setDeleteTarget(null);
+    } catch (err: any) {
+      toast.error(`Silme işlemi başarısız: ${err?.message || "İşlem tamamlanamadı"}`);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -600,7 +615,7 @@ export function ListingsPage() {
                               size="sm"
                               variant="ghost"
                               className="text-muted hover:text-rose-600"
-                              onClick={() => handleDelete(l.id, l.title)}
+                              onClick={() => handleOpenDelete(l.id, l.title)}
                               title="İlanı Kalıcı Sil"
                             >
                               <Trash2 className="size-4" />
@@ -801,7 +816,7 @@ export function ListingsPage() {
                     </Button>
                     <Button
                       variant="destructive"
-                      onClick={() => handleDelete(previewListing.id, previewListing.title)}
+                      onClick={() => handleOpenDelete(previewListing.id, previewListing.title)}
                     >
                       <Trash2 className="size-4 mr-1" /> İlanı Sil
                     </Button>
@@ -966,6 +981,61 @@ export function ListingsPage() {
               </Button>
               <Button variant="destructive" onClick={handleConfirmReject}>
                 İlanı Reddet
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================
+          4. SİTE TARZINDA KALICI SİLME ONAY MODALI
+          ========================================================= */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md rounded-2xl bg-card p-6 shadow-2xl ring-1 ring-line animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-start gap-3.5">
+              <div className="grid size-11 shrink-0 place-items-center rounded-xl bg-rose-50 text-rose-600 ring-1 ring-rose-200">
+                <Trash2 className="size-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-base font-bold text-ink">İlanı Kalıcı Olarak Sil</h3>
+                <p className="mt-1 text-xs text-muted leading-relaxed">
+                  <span className="font-semibold text-ink">&ldquo;{deleteTarget.title}&rdquo;</span> başlıklı ilanı sistemden kalıcı olarak kaldırmak istediğinize emin misiniz?
+                </p>
+              </div>
+            </div>
+
+            {/* Uyarı Kutusu */}
+            <div className="mt-4 rounded-xl border border-rose-200/80 bg-rose-50/60 p-3 text-xs text-rose-900 flex items-start gap-2.5">
+              <AlertTriangle className="size-4 shrink-0 text-rose-600 mt-0.5" />
+              <p className="leading-relaxed">
+                Bu işlem geri alınamaz. İlan veritabanından, favorilerden ve fotoğraflarından tamamen silinecektir.
+              </p>
+            </div>
+
+            <div className="mt-5 flex items-center justify-end gap-2.5">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isDeleting}
+                onClick={() => setDeleteTarget(null)}
+              >
+                Vazgeç
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                disabled={isDeleting}
+                className="bg-rose-600 hover:bg-rose-700 text-white"
+                onClick={handleConfirmDelete}
+              >
+                {isDeleting ? (
+                  "Siliniyor..."
+                ) : (
+                  <>
+                    <Trash2 className="size-3.5 mr-1.5" /> Evet, Kalıcı Olarak Sil
+                  </>
+                )}
               </Button>
             </div>
           </div>
