@@ -35,7 +35,7 @@ interface AdminStore {
   setReportStatus: (id: string, status: ReportStatus) => Promise<void>;
   resolveReport: (options: {
     reportId: string;
-    action: "dismiss" | "delete_listing" | "warning";
+    action: "dismiss" | "delete_listing" | "warning" | "resolve_feedback";
     customMessage?: string;
     reporterId?: string;
     targetTitle?: string;
@@ -188,14 +188,27 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
           reportsList = repData.map((r, i) => {
             const dt = r.created_at ? new Date(r.created_at) : new Date();
             const timeStr = `${dt.toLocaleDateString("tr-TR")} ${dt.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}`;
+            const isAppIssue =
+              r.type === "app_issue" ||
+              r.type === "feedback" ||
+              r.type === "suggestion" ||
+              r.target_id === "takasla_app" ||
+              (r.target_title && r.target_title.toLowerCase().includes("uygulama"));
+            const isUserReport = r.type === "user";
+            const reportType = isAppIssue
+              ? "Uygulama / Öneri Bildirimi"
+              : isUserReport
+                ? "Kullanıcı Şikayeti"
+                : "İlan Bildirimi";
+
             return {
               id: r.id || `SK-${i + 1}`,
               subject: r.reason || "Bildirim",
               reporter: r.reporter_name || (r.reporter_id ? userMap.get(r.reporter_id)?.name : undefined) || "Kullanıcı",
               reporterId: r.reporter_id || undefined,
-              target: r.target_title || "İlgili İlan",
+              target: isAppIssue ? "Takasla Mobil Uygulama" : (r.target_title || "İlgili İlan"),
               targetId: r.target_id || undefined,
-              type: r.type === "user" ? "Kullanıcı Şikayeti" : "İlan Bildirimi",
+              type: reportType,
               status: (r.status as ReportStatus) || "acik",
               created: timeStr,
               detail: r.details || r.reason || "",
@@ -407,11 +420,18 @@ Sebep: ${reason}`,
         let notifTitle = "";
         let notifMessage = "";
 
-        if (action === "dismiss") {
-          notifTitle = "Şikayetiniz İncelendi";
+        if (action === "resolve_feedback" || targetListingId === "takasla_app") {
+          notifTitle = "Geri Bildiriminiz İncelendi";
           notifMessage =
             customMessage ||
-            `"${targetTitle || "İlgili içerik"}" hakkındaki bildiriminiz moderasyon ekibimiz tarafından incelenmiş olup platform kurallarına aykırı bir duruma rastlanmamıştır. Hassasiyetiniz için teşekkür ederiz.`;
+            `İlettiğiniz "${targetTitle || "uygulama bildirimi"}" geliştirme ekibimizce incelendi ve değerlendirmeye alındı. Takasla deneyimini geliştirmemize katkı sağladığınız için teşekkür ederiz!`;
+        } else if (action === "dismiss") {
+          notifTitle = targetListingId === "takasla_app" ? "Bildiriminiz Not Alındı" : "Şikayetiniz İncelendi";
+          notifMessage =
+            customMessage ||
+            (targetListingId === "takasla_app"
+              ? `İlettiğiniz geri bildirim ekibimiz tarafından not alınmıştır. Teşekkür ederiz.`
+              : `"${targetTitle || "İlgili içerik"}" hakkındaki bildiriminiz moderasyon ekibimiz tarafından incelenmiş olup platform kurallarına aykırı bir duruma rastlanmamıştır. Hassasiyetiniz için teşekkür ederiz.`);
         } else if (action === "delete_listing") {
           notifTitle = "Şikayetiniz Sonuçlandı: İlan Kaldırıldı";
           notifMessage =

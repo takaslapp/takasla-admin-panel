@@ -68,7 +68,7 @@ export function OverviewPage() {
   const pendingListings = listings.filter((l) => l.status === "pending");
   const activeListings = listings.filter((l) => l.status === "approved" || l.status === "yayinda");
   const revisionListings = listings.filter((l) => l.status === "revision_requested");
-  const rejectedListings = listings.filter((l) => l.status === "rejected" || l.status === "reddedildi");
+  const rejectedListings = listings.filter((l) => l.status === "rejected");
   const openReports = reports.filter((r) => r.status === "acik" || r.status === "inceleniyor");
 
   return (
@@ -205,41 +205,65 @@ export function OverviewPage() {
             {listings.length === 0 ? (
               <p className="py-8 text-center text-sm text-muted">Henüz ilan eklenmedi.</p>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead className="text-xs uppercase text-muted">
-                    <tr className="border-b border-line">
-                      <th className="pb-3 font-medium">İlan Başlığı</th>
-                      <th className="pb-3 font-medium">Sahibi</th>
-                      <th className="pb-3 font-medium">Kategori</th>
-                      <th className="pb-3 font-medium">Durum</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-line/60">
-                    {listings.slice(0, 5).map((l) => (
-                      <tr key={l.id} className="hover:bg-shell/30 transition-colors">
-                        <td className="py-3 font-medium text-ink">
-                          <p className="line-clamp-1">{l.title}</p>
-                          <span className="text-xs font-normal text-muted">{l.city}</span>
-                        </td>
-                        <td className="py-3 text-muted">{l.ownerName}</td>
-                        <td className="py-3 text-muted">{l.category}</td>
-                        <td className="py-3">
-                          {l.status === "pending" ? (
-                            <StatusChip tone="warn">Onay Bekliyor</StatusChip>
-                          ) : l.status === "revision_requested" ? (
-                            <StatusChip tone="warn">Revize İstendi</StatusChip>
-                          ) : l.status === "approved" || l.status === "yayinda" ? (
-                            <StatusChip tone="ok">Yayında</StatusChip>
-                          ) : (
-                            <StatusChip tone="bad">Reddedildi</StatusChip>
-                          )}
-                        </td>
+              <>
+                {/* Mobil Kart Görünümü */}
+                <div className="space-y-2.5 sm:hidden">
+                  {listings.slice(0, 5).map((l) => (
+                    <div key={l.id} className="rounded-xl border border-line/60 bg-shell/20 p-3 space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="font-semibold text-sm text-ink truncate">{l.title}</p>
+                          <p className="text-xs text-muted mt-0.5">{l.city} · {l.category}</p>
+                        </div>
+                        <StatusChip tone={l.status === "pending" ? "warn" : l.status === "revision_requested" ? "warn" : l.status === "approved" || l.status === "yayinda" ? "ok" : "bad"}>
+                          {l.status === "pending" ? "Onay Bekliyor" : l.status === "revision_requested" ? "Revize İstendi" : l.status === "approved" || l.status === "yayinda" ? "Yayında" : "Reddedildi"}
+                        </StatusChip>
+                      </div>
+                      <p className="text-xs text-muted border-t border-line/50 pt-1.5 flex items-center justify-between">
+                        <span>Sahibi:</span>
+                        <strong className="text-ink font-semibold">{l.ownerName}</strong>
+                      </p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Masaüstü Tablo Görünümü */}
+                <div className="hidden sm:block overflow-x-auto min-w-0">
+                  <table className="w-full text-left text-sm">
+                    <thead className="text-xs uppercase text-muted">
+                      <tr className="border-b border-line">
+                        <th className="pb-3 font-medium">İlan Başlığı</th>
+                        <th className="pb-3 font-medium">Sahibi</th>
+                        <th className="pb-3 font-medium">Kategori</th>
+                        <th className="pb-3 font-medium">Durum</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="divide-y divide-line/60">
+                      {listings.slice(0, 5).map((l) => (
+                        <tr key={l.id} className="hover:bg-shell/30 transition-colors">
+                          <td className="py-3 font-medium text-ink">
+                            <p className="line-clamp-1">{l.title}</p>
+                            <span className="text-xs font-normal text-muted">{l.city}</span>
+                          </td>
+                          <td className="py-3 text-muted">{l.ownerName}</td>
+                          <td className="py-3 text-muted">{l.category}</td>
+                          <td className="py-3">
+                            {l.status === "pending" ? (
+                              <StatusChip tone="warn">Onay Bekliyor</StatusChip>
+                            ) : l.status === "revision_requested" ? (
+                              <StatusChip tone="warn">Revize İstendi</StatusChip>
+                            ) : l.status === "approved" || l.status === "yayinda" ? (
+                              <StatusChip tone="ok">Yayında</StatusChip>
+                            ) : (
+                              <StatusChip tone="bad">Reddedildi</StatusChip>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
           </Panel>
 

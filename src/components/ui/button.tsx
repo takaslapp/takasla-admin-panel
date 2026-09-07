@@ -13,6 +13,8 @@ const buttonVariants = cva(
         ghost: "bg-card text-forest border border-line hover:bg-shell",
         pill: "bg-card/90 text-forest hover:bg-card",
         dark: "bg-forest text-accent hover:opacity-90",
+        outline: "bg-transparent text-ink border border-line hover:bg-shell/80",
+        destructive: "bg-rose-600 text-white hover:bg-rose-700",
       },
       size: {
         default: "h-11 px-5",

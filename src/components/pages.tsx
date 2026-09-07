@@ -2,6 +2,9 @@ import {
   AlertCircle,
   ArrowLeftRight,
   Check,
+  CheckCircle2,
+  Smartphone,
+  Sparkles,
   Edit3,
   AlertTriangle,
   Calendar,
@@ -34,7 +37,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { Listing, ListingStatus, ReportStatus, SuggestionStatus, User } from "@/lib/data";
+import type { Listing, ListingStatus, Report, ReportStatus, SuggestionStatus, User } from "@/lib/data";
 import { useAdminStore } from "@/lib/store";
 import { AdminShell, Panel, StatusChip } from "./admin-shell";
 import { Button } from "./ui/button";
@@ -99,7 +102,63 @@ export function UsersPage() {
       <Panel title="Kullanıcı Listesi" subtitle={`${users.length} kayıtlı üye`}>
         <Toolbar value={q} onChange={setQ} placeholder="İsim, kullanıcı adı, telefon veya şehir ara..." />
         
-        <div className="overflow-x-auto">
+        {/* Mobil Kullanıcı Kartları */}
+        <div className="space-y-3 md:hidden">
+          {rows.length === 0 ? (
+            <p className="py-8 text-center text-muted text-sm">Aramanıza uygun kullanıcı bulunamadı.</p>
+          ) : (
+            rows.map((u) => (
+              <div key={u.id} className="rounded-2xl border border-line/70 bg-card p-3.5 shadow-sm space-y-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <img
+                      src={u.avatar}
+                      alt={u.name}
+                      className="size-10 shrink-0 rounded-full object-cover ring-1 ring-line"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name)}&background=255a47&color=ffffff`;
+                      }}
+                    />
+                    <div className="min-w-0">
+                      <p className="font-semibold text-ink text-sm truncate">{u.name}</p>
+                      <p className="text-xs text-muted font-mono">{u.username}</p>
+                    </div>
+                  </div>
+                  <span
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                      u.role === "Yönetici"
+                        ? "bg-purple-100 text-purple-800"
+                        : "bg-slate-100 text-slate-700"
+                    }`}
+                  >
+                    {u.role}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs text-muted pt-1.5 border-t border-line/60">
+                  <span className="inline-flex items-center gap-1 truncate font-mono text-ink/90">
+                    <Phone className="size-3 text-muted shrink-0" />
+                    {u.phone}
+                  </span>
+                  <span className="inline-flex items-center gap-1 justify-end truncate">
+                    <MapPin className="size-3 text-muted shrink-0" />
+                    {u.city}
+                  </span>
+                  <span className="inline-flex items-center gap-1 truncate text-[11px]">
+                    <Calendar className="size-3 text-muted shrink-0" />
+                    {u.joined}
+                  </span>
+                  <span className="inline-flex items-center gap-1 justify-end text-[11px] font-bold text-forest">
+                    {u.listingsCount} İlan
+                  </span>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Masaüstü Tablosu */}
+        <div className="hidden md:block w-full max-w-full overflow-x-auto min-w-0">
           <table className="w-full min-w-[760px] text-left text-sm">
             <thead className="text-xs uppercase tracking-wide text-muted">
               <tr className="border-b border-line">
@@ -217,7 +276,7 @@ export function ListingsPage() {
   const pendingCount = useMemo(() => listings.filter((l) => l.status === "pending").length, [listings]);
   const approvedCount = useMemo(() => listings.filter((l) => l.status === "approved" || l.status === "yayinda").length, [listings]);
   const revisionCount = useMemo(() => listings.filter((l) => l.status === "revision_requested").length, [listings]);
-  const rejectedCount = useMemo(() => listings.filter((l) => l.status === "rejected" || l.status === "reddedildi").length, [listings]);
+  const rejectedCount = useMemo(() => listings.filter((l) => l.status === "rejected").length, [listings]);
 
   const filtered = useMemo(() => {
     return listings.filter((l) => {
@@ -225,7 +284,7 @@ export function ListingsPage() {
       if (activeTab === "pending") matchTab = l.status === "pending";
       else if (activeTab === "approved") matchTab = l.status === "approved" || l.status === "yayinda";
       else if (activeTab === "revision_requested") matchTab = l.status === "revision_requested";
-      else if (activeTab === "rejected") matchTab = l.status === "rejected" || l.status === "reddedildi";
+      else if (activeTab === "rejected") matchTab = l.status === "rejected";
 
       const matchSearch =
         `${l.title} ${l.ownerName} ${l.ownerPhone} ${l.category} ${l.city} ${l.wants} ${l.description}`
@@ -377,7 +436,153 @@ export function ListingsPage() {
         <Panel title="İlan Listesi" subtitle={`${filtered.length} ilan listeleniyor`}>
           <Toolbar value={q} onChange={setQ} placeholder="İlan başlığı, sahibi, kategori, şehir veya takas tercihi ara..." />
 
-          <div className="overflow-x-auto">
+          {/* Mobil İlan Kartları */}
+          <div className="space-y-3.5 lg:hidden">
+            {filtered.length === 0 ? (
+              <p className="py-8 text-center text-muted text-sm">Bu filtreleme kriterine uygun ilan bulunamadı.</p>
+            ) : (
+              filtered.map((l) => {
+                const hasPhotos = l.images && l.images.length > 0;
+                const mainPhoto = hasPhotos ? l.images[0] : null;
+
+                return (
+                  <div key={l.id} className="rounded-2xl border border-line/70 bg-card p-3.5 shadow-sm space-y-3">
+                    <div className="flex items-start gap-3">
+                      <div
+                        onClick={() => {
+                          setPreviewListing(l);
+                          setSelectedPhotoIndex(0);
+                        }}
+                        className="relative size-16 shrink-0 cursor-pointer overflow-hidden rounded-xl border border-line bg-shell/50"
+                      >
+                        {mainPhoto ? (
+                          <img
+                            src={mainPhoto}
+                            alt={l.title}
+                            className="size-full object-cover"
+                            onError={(e) => {
+                              (e.target as HTMLElement).style.display = "none";
+                            }}
+                          />
+                        ) : (
+                          <div className="grid size-full place-items-center text-muted">
+                            <Package className="size-5 opacity-40" />
+                          </div>
+                        )}
+                        {hasPhotos && l.images.length > 1 && (
+                          <span className="absolute bottom-0.5 right-0.5 rounded bg-black/70 px-1 py-0.2 text-[9px] font-bold text-white">
+                            +{l.images.length - 1}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <h4
+                          onClick={() => {
+                            setPreviewListing(l);
+                            setSelectedPhotoIndex(0);
+                          }}
+                          className="font-bold text-sm text-ink line-clamp-2 cursor-pointer hover:text-forest"
+                        >
+                          {l.title}
+                        </h4>
+                        <p className="text-xs text-muted flex items-center gap-1 mt-1">
+                          <MapPin className="size-3 shrink-0" /> {l.city} · <Clock className="size-3 shrink-0" /> {l.created}
+                        </p>
+                        <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                          <span className="rounded-md bg-shell px-2 py-0.5 text-[11px] font-medium text-ink">
+                            {l.category}
+                          </span>
+                          <span className="text-[11px] text-muted">({l.condition})</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl bg-shell/40 p-2.5 space-y-1.5 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted">İlan Sahibi:</span>
+                        <span className="font-semibold text-ink">{l.ownerName} ({l.ownerPhone})</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-muted shrink-0">Takas:</span>
+                        <span className="font-medium text-emerald-900 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200/60 truncate max-w-[200px]">
+                          {l.wants}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1">
+                      <span className="text-xs font-medium text-muted">Durum:</span>
+                      {l.status === "pending" ? (
+                        <StatusChip tone="warn">Onay Bekliyor</StatusChip>
+                      ) : l.status === "revision_requested" ? (
+                        <StatusChip tone="warn">Revize İstendi</StatusChip>
+                      ) : l.status === "approved" || l.status === "yayinda" ? (
+                        <StatusChip tone="ok">Yayında</StatusChip>
+                      ) : (
+                        <StatusChip tone="bad">Reddedildi</StatusChip>
+                      )}
+                    </div>
+
+                    <div className="pt-2 border-t border-line/60 flex flex-wrap items-center gap-1.5">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1 h-8 text-xs font-semibold text-forest border-forest/30 bg-forest/5"
+                        onClick={() => {
+                          setPreviewListing(l);
+                          setSelectedPhotoIndex(0);
+                        }}
+                      >
+                        <Eye className="size-3 mr-1" /> İncele
+                      </Button>
+
+                      {l.status === "pending" && (
+                        <>
+                          <Button
+                            size="sm"
+                            className="bg-forest hover:bg-forest/90 text-white text-xs h-8 px-2.5 font-semibold"
+                            onClick={() => handleApprove(l.id, l.title)}
+                          >
+                            <Check className="size-3 mr-1" /> Onayla
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-amber-800 bg-amber-50 hover:bg-amber-100 border-amber-300 text-xs h-8 px-2 font-semibold"
+                            onClick={() => handleOpenRevision(l)}
+                          >
+                            <Edit3 className="size-3 mr-1" /> Revize
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-rose-700 bg-rose-50 hover:bg-rose-100 border-rose-300 text-xs h-8 px-2 font-semibold"
+                            onClick={() => handleOpenReject(l)}
+                          >
+                            <XCircle className="size-3 mr-1" /> Reddet
+                          </Button>
+                        </>
+                      )}
+
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 h-8 px-2 text-xs"
+                        onClick={() => setDeleteTarget({ id: l.id, title: l.title })}
+                        title="İlanı Sil"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Masaüstü Tablosu */}
+          <div className="hidden lg:block w-full max-w-full overflow-x-auto min-w-0">
             <table className="w-full min-w-[1000px] text-left text-sm">
               <thead className="text-xs uppercase tracking-wide text-muted">
                 <tr className="border-b border-line">
@@ -1065,7 +1270,7 @@ export function ReportsPage() {
   // Aksiyon ve Bildirim Modalı
   const [actionModal, setActionModal] = useState<{
     report: Report;
-    action: "delete_listing" | "dismiss";
+    action: "delete_listing" | "dismiss" | "resolve_feedback";
   } | null>(null);
   const [actionNote, setActionNote] = useState("");
   const [isActionSubmitting, setIsActionSubmitting] = useState(false);
@@ -1109,17 +1314,33 @@ export function ReportsPage() {
   };
 
   // Aksiyon Modalını Aç
-  const openActionModal = (report: Report, action: "delete_listing" | "dismiss") => {
-    if (action === "delete_listing") {
+  const openActionModal = (
+    report: Report,
+    action: "delete_listing" | "dismiss" | "resolve_feedback"
+  ) => {
+    const isApp =
+      report.type.includes("Uygulama") ||
+      report.targetId === "takasla_app" ||
+      report.target.includes("Uygulama");
+
+    if (action === "resolve_feedback" || (isApp && action !== "dismiss")) {
+      setActionNote(
+        `İlettiğiniz "${report.subject}" konulu geri bildiriminiz ekibimiz tarafından incelendi ve değerlendirmeye alındı. Takasla deneyimini geliştirmemize katkı sağladığınız için teşekkür ederiz!`
+      );
+      setActionModal({ report, action: "resolve_feedback" });
+    } else if (action === "delete_listing") {
       setActionNote(
         `Bildirdiğiniz "${report.target}" başlıklı ilan moderasyon ekibimiz tarafından incelendi ve platform kurallarımıza aykırı bulunduğu için yayından kaldırıldı. Topluluğumuzu korumamıza yardımcı olduğunuz için teşekkür ederiz!`
       );
+      setActionModal({ report, action });
     } else {
       setActionNote(
-        `"${report.target}" hakkındaki bildiriminiz moderasyon ekibimiz tarafından incelenmiş olup platform kurallarına aykırı bir duruma rastlanmamıştır. Hassasiyetiniz ve bildiriminiz için teşekkür ederiz.`
+        isApp
+          ? `İlettiğiniz bildirim incelenmiş ve notlarımız arasına alınmıştır. Teşekkür ederiz.`
+          : `"${report.target}" hakkındaki bildiriminiz moderasyon ekibimiz tarafından incelenmiş olup platform kurallarına aykırı bir duruma rastlanmamıştır. Hassasiyetiniz ve bildiriminiz için teşekkür ederiz.`
       );
+      setActionModal({ report, action });
     }
-    setActionModal({ report, action });
   };
 
   // Aksiyonu Onayla ve Bildir
@@ -1138,6 +1359,8 @@ export function ReportsPage() {
 
       if (actionModal.action === "delete_listing") {
         toast.success(`İlan kaldırıldı ve ${actionModal.report.reporter} kullanıcısına teşekkür bildirimi iletildi.`);
+      } else if (actionModal.action === "resolve_feedback") {
+        toast.success(`Geri bildirim çözüldü ve ${actionModal.report.reporter} kullanıcısına teşekkür iletildi.`);
       } else {
         toast.info(`Şikayet kapatıldı ve ${actionModal.report.reporter} kullanıcısına bilgi verildi.`);
       }
@@ -1217,142 +1440,324 @@ export function ReportsPage() {
               <p className="text-xs text-muted mt-1">Gelen şikayetler çözüldü veya filtreleme kriterine uygun kayıt yok.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[900px] text-left text-sm">
-                <thead className="text-xs uppercase tracking-wide text-muted">
-                  <tr className="border-b border-line">
-                    <th className="pb-3 font-semibold min-w-[240px]">Şikayet Nedeni & Açıklama</th>
-                    <th className="pb-3 font-semibold">Bildiren Üye</th>
-                    <th className="pb-3 font-semibold min-w-[200px]">Şikayet Edilen İlan</th>
-                    <th className="pb-3 font-semibold">Tarih</th>
-                    <th className="pb-3 font-semibold">Durum</th>
-                    <th className="pb-3 font-semibold text-right min-w-[220px]">Moderasyon Aksiyonu</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-line/60">
-                  {rows.map((r) => {
-                    const hasListing = listings.some(
-                      (l) => l.id === r.targetId || l.title.toLowerCase() === r.target.toLowerCase()
-                    );
+            <>
+              {/* MOBİL ŞİKAYET KARTLARI */}
+              <div className="space-y-3.5 md:hidden">
+                {rows.map((r) => {
+                  const isApp =
+                    r.type.includes("Uygulama") ||
+                    r.targetId === "takasla_app" ||
+                    r.target.includes("Uygulama");
+                  const hasListing = listings.some(
+                    (l) => l.id === r.targetId || l.title.toLowerCase() === r.target.toLowerCase()
+                  );
 
-                    return (
-                      <tr key={r.id} className="hover:bg-shell/30 transition-colors">
-                        {/* 1. Şikayet Nedeni & Belirgin Açıklama */}
-                        <td className="py-4">
-                          <div className="flex items-center gap-2">
-                            <span className="inline-flex items-center gap-1 rounded-md bg-rose-50 px-2 py-0.5 text-xs font-semibold text-rose-800 border border-rose-200/80">
-                              <AlertCircle className="size-3 text-rose-600" />
+                  return (
+                    <div key={r.id} className="rounded-2xl border border-line/70 bg-card p-4 shadow-sm space-y-3">
+                      {/* Başlık & Durum */}
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold border ${
+                              isApp
+                                ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                                : "bg-rose-50 text-rose-800 border-rose-200"
+                            }`}>
+                              {isApp ? <Sparkles className="size-3 text-emerald-600" /> : <AlertCircle className="size-3 text-rose-600" />}
                               {r.subject}
                             </span>
-                            <span className="text-[11px] text-muted">{r.type}</span>
+                            <span className="text-[11px] text-muted font-medium">{r.type}</span>
                           </div>
+                          <p className="text-[11px] text-muted flex items-center gap-1 mt-1">
+                            <Clock className="size-3" /> {r.created}
+                          </p>
+                        </div>
 
-                          {/* Kullanıcı Açıklaması (Belirgin & Okunaklı) */}
-                          {r.detail && (
-                            <div className="mt-2 rounded-xl border border-amber-200/80 bg-amber-50/70 p-2.5 text-xs text-amber-950 max-w-[360px]">
-                              <span className="font-bold text-[10.5px] uppercase tracking-wider text-amber-800 flex items-center gap-1 mb-0.5">
-                                <AlertTriangle className="size-3 text-amber-600 shrink-0" />
-                                Kullanıcı Notu:
-                              </span>
-                              <p className="font-medium leading-relaxed italic text-ink/90">
-                                &ldquo;{r.detail}&rdquo;
-                              </p>
-                            </div>
-                          )}
-                        </td>
+                        <StatusChip tone={r.status === "acik" ? "warn" : r.status === "cozuldu" ? "ok" : "mute"}>
+                          {r.status === "acik" ? "Açık Dosya" : r.status === "cozuldu" ? "Çözüldü" : "İhlal Görülmedi"}
+                        </StatusChip>
+                      </div>
 
-                        {/* 2. Bildiren Üye */}
-                        <td className="py-4">
-                          <div className="flex items-center gap-1.5">
-                            <UserIcon className="size-3.5 text-muted" />
-                            <span className="font-medium text-ink">{r.reporter}</span>
-                          </div>
-                        </td>
-
-                        {/* 3. Şikayet Edilen İlan & İncele Butonu */}
-                        <td className="py-4">
-                          <p className="font-semibold text-ink line-clamp-1">{r.target}</p>
-                          <div className="mt-1.5 flex items-center gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className={`h-7 px-2.5 text-xs ${
-                                hasListing
-                                  ? "text-forest bg-forest/5 hover:bg-forest/10 border-forest/30 font-semibold"
-                                  : "text-muted border-line opacity-75"
-                              }`}
-                              onClick={() => handleInspectListing(r)}
-                              title="İlanın fotoğraflarını ve tüm bilgilerini aç"
-                            >
-                              <Eye className="size-3.5 mr-1" />
-                              İlanı İncele
-                            </Button>
-                          </div>
-                        </td>
-
-                        {/* 4. Tarih */}
-                        <td className="py-4 text-xs text-muted whitespace-nowrap">
-                          <div className="flex items-center gap-1">
-                            <Clock className="size-3" />
-                            {r.created}
-                          </div>
-                        </td>
-
-                        {/* 5. Durum */}
-                        <td className="py-4 whitespace-nowrap">
-                          {r.status === "acik" ? (
-                            <StatusChip tone="warn">Açık Dosya</StatusChip>
-                          ) : r.status === "cozuldu" ? (
-                            <StatusChip tone="ok">Çözüldü</StatusChip>
+                      {/* Bildiren & İlgili Hedef */}
+                      <div className="rounded-xl bg-shell/40 p-3 space-y-1.5 text-xs">
+                        <div className="flex items-center justify-between">
+                          <span className="text-muted">Bildiren Üye:</span>
+                          <span className="font-semibold text-ink flex items-center gap-1">
+                            <UserIcon className="size-3.5 text-muted" /> {r.reporter}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-muted">İlgili Hedef:</span>
+                          {isApp ? (
+                            <span className="font-semibold text-forest flex items-center gap-1">
+                              <Smartphone className="size-3.5" /> Takasla Mobil Uygulama
+                            </span>
                           ) : (
-                            <StatusChip tone="mute">İhlal Görülmedi</StatusChip>
+                            <span className="font-semibold text-ink truncate max-w-[180px]">
+                              {r.target}
+                            </span>
                           )}
-                        </td>
+                        </div>
+                      </div>
 
-                        {/* 6. Moderasyon Aksiyonları */}
-                        <td className="py-4 text-right whitespace-nowrap">
-                          {r.status === "acik" ? (
-                            <div className="flex items-center justify-end gap-1.5">
-                              {/* İlanı Kaldır ve Kullanıcıya Bildir */}
+                      {/* Kullanıcı Notu */}
+                      {r.detail && (
+                        <div className="rounded-xl border border-amber-200/80 bg-amber-50/70 p-2.5 text-xs text-amber-950">
+                          <span className="font-bold text-[10.5px] uppercase tracking-wider text-amber-800 flex items-center gap-1 mb-0.5">
+                            <AlertTriangle className="size-3 text-amber-600 shrink-0" />
+                            Kullanıcı Açıklaması:
+                          </span>
+                          <p className="font-medium leading-relaxed italic text-ink/90">
+                            &ldquo;{r.detail}&rdquo;
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Aksiyon Butonları */}
+                      {r.status === "acik" ? (
+                        <div className="pt-1 flex flex-wrap items-center gap-2">
+                          {isApp ? (
+                            <>
+                              <Button
+                                size="sm"
+                                className="flex-1 bg-forest hover:bg-forest/90 text-white font-semibold text-xs h-9"
+                                onClick={() => openActionModal(r, "resolve_feedback")}
+                              >
+                                <CheckCircle2 className="size-3.5 mr-1" /> İncelendi & Çöz
+                              </Button>
                               <Button
                                 size="sm"
                                 variant="outline"
-                                className="text-rose-700 bg-rose-50 hover:bg-rose-100 border-rose-300 font-semibold text-xs"
+                                className="text-muted hover:text-ink text-xs h-9 px-3"
+                                onClick={() => openActionModal(r, "dismiss")}
+                              >
+                                Not Al / Kapat
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              {hasListing && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="w-full text-forest border-forest/30 bg-forest/5 font-semibold text-xs h-8 mb-1"
+                                  onClick={() => handleInspectListing(r)}
+                                >
+                                  <Eye className="size-3.5 mr-1" /> İlanı İncele
+                                </Button>
+                              )}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="flex-1 text-rose-700 bg-rose-50 hover:bg-rose-100 border-rose-300 font-semibold text-xs h-9"
                                 onClick={() => openActionModal(r, "delete_listing")}
-                                title="İlanı kalıcı sil ve şikayetçiye teşekkür bildirimi ilet"
                               >
                                 <Trash2 className="size-3.5 mr-1" /> İlanı Kaldır & Çöz
                               </Button>
-
-                              {/* İhlal Yok / Reddet */}
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                className="text-muted hover:text-ink text-xs"
+                                className="text-muted hover:text-ink text-xs h-9 px-3"
                                 onClick={() => openActionModal(r, "dismiss")}
-                                title="İlanı elleme, şikayetçiye kural ihlali görülmediği bildir"
                               >
-                                <XCircle className="size-3.5 mr-1" /> İhlal Yok
+                                İhlal Yok
                               </Button>
-                            </div>
-                          ) : r.status === "cozuldu" ? (
-                            <div className="flex items-center justify-end gap-1 text-xs font-semibold text-emerald-700">
-                              <CheckCircle className="size-3.5" />
-                              <span>İlan Kaldırıldı & Çözüldü</span>
-                            </div>
-                          ) : (
-                            <div className="flex items-center justify-end gap-1 text-xs font-medium text-muted">
-                              <Check className="size-3.5" />
-                              <span>İhlal Görülmedi (Kapatıldı)</span>
-                            </div>
+                            </>
                           )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                        </div>
+                      ) : (
+                        <div className="pt-1 flex items-center justify-end text-xs font-semibold text-muted gap-1">
+                          <CheckCircle className="size-3.5 text-emerald-600" />
+                          <span>
+                            {r.status === "cozuldu"
+                              ? isApp
+                                ? "İncelendi & Çözüldü"
+                                : "İlan Kaldırıldı & Çözüldü"
+                              : "İhlal Görülmedi (Kapatıldı)"}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* MASAÜSTÜ TABLOSU */}
+              <div className="hidden md:block w-full max-w-full overflow-x-auto min-w-0">
+                <table className="w-full min-w-[900px] text-left text-sm">
+                  <thead className="text-xs uppercase tracking-wide text-muted">
+                    <tr className="border-b border-line">
+                      <th className="pb-3 font-semibold min-w-[240px]">Şikayet Nedeni & Açıklama</th>
+                      <th className="pb-3 font-semibold">Bildiren Üye</th>
+                      <th className="pb-3 font-semibold min-w-[200px]">İlgili Hedef / İlan</th>
+                      <th className="pb-3 font-semibold">Tarih</th>
+                      <th className="pb-3 font-semibold">Durum</th>
+                      <th className="pb-3 font-semibold text-right min-w-[220px]">Moderasyon Aksiyonu</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-line/60">
+                    {rows.map((r) => {
+                      const isApp =
+                        r.type.includes("Uygulama") ||
+                        r.targetId === "takasla_app" ||
+                        r.target.includes("Uygulama");
+                      const hasListing = listings.some(
+                        (l) => l.id === r.targetId || l.title.toLowerCase() === r.target.toLowerCase()
+                      );
+
+                      return (
+                        <tr key={r.id} className="hover:bg-shell/30 transition-colors">
+                          {/* 1. Şikayet Nedeni & Açıklama */}
+                          <td className="py-4">
+                            <div className="flex items-center gap-2">
+                              <span className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold border ${
+                                isApp
+                                  ? "bg-emerald-50 text-emerald-800 border-emerald-200/80"
+                                  : "bg-rose-50 text-rose-800 border-rose-200/80"
+                              }`}>
+                                {isApp ? <Sparkles className="size-3 text-emerald-600" /> : <AlertCircle className="size-3 text-rose-600" />}
+                                {r.subject}
+                              </span>
+                              <span className="text-[11px] text-muted">{r.type}</span>
+                            </div>
+
+                            {r.detail && (
+                              <div className="mt-2 rounded-xl border border-amber-200/80 bg-amber-50/70 p-2.5 text-xs text-amber-950 max-w-[360px]">
+                                <span className="font-bold text-[10.5px] uppercase tracking-wider text-amber-800 flex items-center gap-1 mb-0.5">
+                                  <AlertTriangle className="size-3 text-amber-600 shrink-0" />
+                                  Kullanıcı Notu:
+                                </span>
+                                <p className="font-medium leading-relaxed italic text-ink/90">
+                                  &ldquo;{r.detail}&rdquo;
+                                </p>
+                              </div>
+                            )}
+                          </td>
+
+                          {/* 2. Bildiren Üye */}
+                          <td className="py-4">
+                            <div className="flex items-center gap-1.5">
+                              <UserIcon className="size-3.5 text-muted" />
+                              <span className="font-medium text-ink">{r.reporter}</span>
+                            </div>
+                          </td>
+
+                          {/* 3. İlgili Hedef / İlan */}
+                          <td className="py-4">
+                            {isApp ? (
+                              <div>
+                                <div className="flex items-center gap-1.5 font-semibold text-forest">
+                                  <Smartphone className="size-4 shrink-0" />
+                                  <span>Takasla Mobil Uygulama</span>
+                                </div>
+                                <span className="text-[11px] text-muted">Sistem / Geri Bildirimi</span>
+                              </div>
+                            ) : (
+                              <div>
+                                <p className="font-semibold text-ink line-clamp-1">{r.target}</p>
+                                <div className="mt-1.5 flex items-center gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className={`h-7 px-2.5 text-xs ${
+                                      hasListing
+                                        ? "text-forest bg-forest/5 hover:bg-forest/10 border-forest/30 font-semibold"
+                                        : "text-muted border-line opacity-75"
+                                    }`}
+                                    onClick={() => handleInspectListing(r)}
+                                    title="İlanın fotoğraflarını ve tüm bilgilerini aç"
+                                  >
+                                    <Eye className="size-3.5 mr-1" />
+                                    İlanı İncele
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
+                          </td>
+
+                          {/* 4. Tarih */}
+                          <td className="py-4 text-xs text-muted whitespace-nowrap">
+                            <div className="flex items-center gap-1">
+                              <Clock className="size-3" />
+                              {r.created}
+                            </div>
+                          </td>
+
+                          {/* 5. Durum */}
+                          <td className="py-4 whitespace-nowrap">
+                            {r.status === "acik" ? (
+                              <StatusChip tone="warn">Açık Dosya</StatusChip>
+                            ) : r.status === "cozuldu" ? (
+                              <StatusChip tone="ok">Çözüldü</StatusChip>
+                            ) : (
+                              <StatusChip tone="mute">İhlal Görülmedi</StatusChip>
+                            )}
+                          </td>
+
+                          {/* 6. Moderasyon Aksiyonları */}
+                          <td className="py-4 text-right whitespace-nowrap">
+                            {r.status === "acik" ? (
+                              isApp ? (
+                                <div className="flex items-center justify-end gap-1.5">
+                                  <Button
+                                    size="sm"
+                                    className="text-white bg-forest hover:bg-forest/90 font-semibold text-xs"
+                                    onClick={() => openActionModal(r, "resolve_feedback")}
+                                    title="Bildirimi incele ve kullanıcıya teşekkür ilet"
+                                  >
+                                    <CheckCircle2 className="size-3.5 mr-1" /> İncelendi & Çöz
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="text-muted hover:text-ink text-xs"
+                                    onClick={() => openActionModal(r, "dismiss")}
+                                    title="Bildirimi not al ve kapat"
+                                  >
+                                    <Check className="size-3.5 mr-1" /> Not Alındı
+                                  </Button>
+                                </div>
+                              ) : (
+                                <div className="flex items-center justify-end gap-1.5">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-rose-700 bg-rose-50 hover:bg-rose-100 border-rose-300 font-semibold text-xs"
+                                    onClick={() => openActionModal(r, "delete_listing")}
+                                    title="İlanı kalıcı sil ve şikayetçiye teşekkür bildirimi ilet"
+                                  >
+                                    <Trash2 className="size-3.5 mr-1" /> İlanı Kaldır & Çöz
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="text-muted hover:text-ink text-xs"
+                                    onClick={() => openActionModal(r, "dismiss")}
+                                    title="İlanı elleme, şikayetçiye kural ihlali görülmediği bildir"
+                                  >
+                                    <XCircle className="size-3.5 mr-1" /> İhlal Yok
+                                  </Button>
+                                </div>
+                              )
+                            ) : r.status === "cozuldu" ? (
+                              <div className="flex items-center justify-end gap-1 text-xs font-semibold text-emerald-700">
+                                <CheckCircle className="size-3.5" />
+                                <span>{isApp ? "İncelendi & Çözüldü" : "İlan Kaldırıldı & Çözüldü"}</span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-end gap-1 text-xs font-medium text-muted">
+                                <Check className="size-3.5" />
+                                <span>İhlal Görülmedi (Kapatıldı)</span>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </Panel>
       </div>
@@ -1518,11 +1923,15 @@ export function ReportsPage() {
                 className={`grid size-11 shrink-0 place-items-center rounded-xl ring-1 ${
                   actionModal.action === "delete_listing"
                     ? "bg-rose-50 text-rose-600 ring-rose-200"
-                    : "bg-slate-100 text-slate-700 ring-slate-200"
+                    : actionModal.action === "resolve_feedback"
+                      ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+                      : "bg-slate-100 text-slate-700 ring-slate-200"
                 }`}
               >
                 {actionModal.action === "delete_listing" ? (
                   <Trash2 className="size-5" />
+                ) : actionModal.action === "resolve_feedback" ? (
+                  <CheckCircle2 className="size-5" />
                 ) : (
                   <CheckCircle className="size-5" />
                 )}
@@ -1531,10 +1940,12 @@ export function ReportsPage() {
                 <h3 className="text-base font-bold text-ink">
                   {actionModal.action === "delete_listing"
                     ? "İlanı Kaldır ve Şikayeti Çöz"
-                    : "Şikayeti Kapat (İhlal Tespit Edilmedi)"}
+                    : actionModal.action === "resolve_feedback"
+                      ? "Geri Bildirimi Yanıtla & Çöz"
+                      : "Şikayeti Kapat (İhlal Tespit Edilmedi)"}
                 </h3>
                 <p className="mt-1 text-xs text-muted leading-relaxed">
-                  Şikayet Eden: <strong className="text-ink font-semibold">{actionModal.report.reporter}</strong> · Hedef: <strong className="text-ink font-semibold">{actionModal.report.target}</strong>
+                  Bildiren: <strong className="text-ink font-semibold">{actionModal.report.reporter}</strong> · Hedef: <strong className="text-ink font-semibold">{actionModal.report.target}</strong>
                 </p>
               </div>
             </div>
@@ -1544,7 +1955,9 @@ export function ReportsPage() {
               className={`mt-4 rounded-xl border p-3 text-xs leading-relaxed ${
                 actionModal.action === "delete_listing"
                   ? "border-rose-200 bg-rose-50/70 text-rose-900"
-                  : "border-slate-200 bg-slate-50 text-slate-700"
+                  : actionModal.action === "resolve_feedback"
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                    : "border-slate-200 bg-slate-50 text-slate-700"
               }`}
             >
               {actionModal.action === "delete_listing" ? (
@@ -1554,11 +1967,18 @@ export function ReportsPage() {
                     İlgili ilan sistemden tamamen silinecektir ve şikayet eden üyeye teşekkür ve durum bildirimi iletilecektir.
                   </span>
                 </p>
+              ) : actionModal.action === "resolve_feedback" ? (
+                <p className="flex items-start gap-2">
+                  <CheckCircle2 className="size-4 shrink-0 text-emerald-600 mt-0.5" />
+                  <span>
+                    İlettiği öneri veya sorun bildirimi için kullanıcıya teşekkür bildirimi gönderilecek ve dosya çözüldü olarak kapatılacaktır.
+                  </span>
+                </p>
               ) : (
                 <p className="flex items-start gap-2">
                   <Check className="size-4 shrink-0 text-slate-600 mt-0.5" />
                   <span>
-                    İlanda herhangi bir kural ihlali görülmediği için ilan yayında kalacak ve şikayet eden üyeye durum bildirilecektir.
+                    Bildirim incelendi ve not alındı olarak işaretlenecek ve dosya kapatılacaktır.
                   </span>
                 </p>
               )}
@@ -1606,6 +2026,10 @@ export function ReportsPage() {
                 ) : actionModal.action === "delete_listing" ? (
                   <>
                     <Trash2 className="size-3.5 mr-1.5" /> İlanı Kaldır ve Bildir
+                  </>
+                ) : actionModal.action === "resolve_feedback" ? (
+                  <>
+                    <CheckCircle2 className="size-3.5 mr-1.5" /> İncelendi Olarak Çöz & Bildir
                   </>
                 ) : (
                   <>

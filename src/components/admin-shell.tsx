@@ -10,7 +10,7 @@ import {
   User as UserIcon,
   X,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useAdminStore } from "@/lib/store";
 
@@ -61,7 +61,41 @@ export function AdminShell({
   const openReports = useMemo(() => reports.filter((r) => r.status === "acik"), [reports]);
   const recentListings = useMemo(() => listings.slice(0, 2), [listings]);
   const recentUsers = useMemo(() => users.slice(0, 2), [users]);
-  const unreadCount = openReports.length;
+
+  // Okunmuş bildirim kimlikleri (localStorage üzerinden kalıcı)
+  const [readReportIds, setReadReportIds] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem("takasla_read_reports");
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const markReportsAsRead = (ids?: string[]) => {
+    setReadReportIds((prev) => {
+      const targetIds = ids || openReports.map((r) => r.id);
+      const updated = Array.from(new Set([...prev, ...targetIds]));
+      try {
+        localStorage.setItem("takasla_read_reports", JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  };
+
+  // /sikayetler sayfasına gidildiğinde açık şikayetleri okundu say
+  useEffect(() => {
+    if (pathname === "/sikayetler" && openReports.length > 0) {
+      markReportsAsRead();
+    }
+  }, [pathname, openReports]);
+
+  // Henüz tıklanmamış / okunmamış açık şikayetler
+  const unreadReports = useMemo(
+    () => openReports.filter((r) => !readReportIds.includes(r.id)),
+    [openReports, readReportIds]
+  );
+  const unreadCount = unreadReports.length;
 
   const handlePageReload = () => {
     setIsRefreshing(true);
@@ -71,11 +105,11 @@ export function AdminShell({
   };
 
   return (
-    <div className="min-h-dvh bg-bg px-2 py-2 sm:px-3 sm:py-3">
-      <div className="mx-auto min-h-[calc(100dvh-1rem)] max-w-[1440px] rounded-[1.75rem] bg-shell sm:rounded-[2rem]">
-        {/* Banner Üst Kısım - taşma sadece arka plan görselinde gizlenir, dropdown kesilmez */}
-        <div className="relative isolate rounded-b-[1.5rem]">
-          <div className="absolute inset-0 overflow-hidden rounded-b-[1.5rem] pointer-events-none">
+    <div className="min-h-dvh bg-bg w-full max-w-full overflow-x-hidden p-0 sm:p-3">
+      <div className="mx-auto min-h-dvh sm:min-h-[calc(100dvh-1.5rem)] w-full max-w-[1440px] rounded-none sm:rounded-[2rem] bg-shell min-w-0 overflow-hidden shadow-2xl">
+        {/* Banner Üst Kısım - mobilde tam genişlik, taşma yapmaz */}
+        <div className="relative isolate rounded-b-[1.25rem] sm:rounded-b-[1.5rem] w-full min-w-0 overflow-hidden">
+          <div className="absolute inset-0 overflow-hidden rounded-b-[1.25rem] sm:rounded-b-[1.5rem] pointer-events-none">
             <img
               src="/hero.jpg"
               alt=""
@@ -118,7 +152,13 @@ export function AdminShell({
                 type="button"
                 aria-label="Bildirimler"
                 onClick={() => {
-                  setNotifOpen((v) => !v);
+                  setNotifOpen((v) => {
+                    const next = !v;
+                    if (next && openReports.length > 0) {
+                      markReportsAsRead();
+                    }
+                    return next;
+                  });
                   setOpen(false);
                 }}
                 className={cn(
@@ -189,9 +229,18 @@ export function AdminShell({
                   </div>
                   <div className="flex items-center gap-1.5">
                     {unreadCount > 0 ? (
-                      <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700">
-                        {unreadCount} Açık
-                      </span>
+                      <>
+                        <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700">
+                          {unreadCount} Yeni
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => markReportsAsRead()}
+                          className="text-[11px] font-medium text-forest hover:underline"
+                        >
+                          Okundu Say
+                        </button>
+                      </>
                     ) : (
                       <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
                         Temiz
@@ -216,7 +265,10 @@ export function AdminShell({
                       <Link
                         key={r.id}
                         to="/sikayetler"
-                        onClick={() => setNotifOpen(false)}
+                        onClick={() => {
+                          markReportsAsRead([r.id]);
+                          setNotifOpen(false);
+                        }}
                         className="group flex items-start gap-3 rounded-xl border border-rose-100 bg-rose-50/50 p-3 transition-colors hover:bg-rose-50/90"
                       >
                         <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-rose-500 text-white">
@@ -386,7 +438,7 @@ export function AdminShell({
         </div>
 
         {/* Ana Sayfa İçeriği */}
-        <div className="px-2 pb-6 pt-3 sm:px-5 sm:pb-8 lg:px-6">{children}</div>
+        <div className="w-full max-w-full min-w-0 px-2 pb-6 pt-3 sm:px-5 sm:pb-8 lg:px-6">{children}</div>
       </div>
     </div>
   );
@@ -408,7 +460,7 @@ export function Panel({
   return (
     <section
       className={cn(
-        "rounded-[1.25rem] sm:rounded-[1.5rem] bg-card p-4 sm:p-6 shadow-[0_10px_30px_rgba(20,24,18,0.05)] ring-1 ring-line/50",
+        "w-full max-w-full min-w-0 overflow-hidden rounded-[1.25rem] sm:rounded-[1.5rem] bg-card p-3.5 sm:p-6 shadow-[0_10px_30px_rgba(20,24,18,0.05)] ring-1 ring-line/50",
         className,
       )}
     >
