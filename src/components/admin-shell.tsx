@@ -20,6 +20,7 @@ const NAV = [
   { to: "/ilanlar", label: "İlanlar" },
   { to: "/sikayetler", label: "Şikayetler" },
   { to: "/oneriler", label: "Öneriler" },
+  { to: "/bildirimler", label: "Duyuru & Bildirim" },
   { to: "/analitik", label: "Analitik" },
 ];
 
