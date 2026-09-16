@@ -94,6 +94,15 @@ function createFcmPayload({
   body: string;
   data?: Record<string, string>;
 }) {
+  const cleanData: Record<string, string> = {};
+  if (data) {
+    for (const [k, v] of Object.entries(data)) {
+      cleanData[k] = v !== undefined && v !== null ? String(v) : "";
+    }
+  }
+
+  const notificationType = cleanData.type || cleanData.notif_type || "admin_announcement";
+
   return {
     message: {
       ...(topic ? { topic } : { token }),
@@ -102,11 +111,11 @@ function createFcmPayload({
         body,
       },
       data: {
-        type: "admin_announcement",
+        type: notificationType,
         title,
         body,
         timestamp: new Date().toISOString(),
-        ...(data || {}),
+        ...cleanData,
       },
       apns: {
         headers: {
@@ -123,10 +132,10 @@ function createFcmPayload({
             sound: "default",
             badge: 1,
           },
-          type: "admin_announcement",
+          type: notificationType,
           title,
           body,
-          ...(data || {}),
+          ...cleanData,
         },
       },
       android: {
@@ -462,5 +471,89 @@ export function saveAnnouncementToHistory(rec: AnnouncementRecord) {
     );
   } catch (err) {
     console.warn("saveAnnouncementToHistory hatası:", err);
+  }
+}
+
+
+/**
+ * İlan Durumu Değiştiğinde (Onay, Revize, Red) Kullanıcıya Doğrudan Push Bildirimi Gönderir
+ */
+export async function sendListingNotificationPush({
+  userId,
+  title,
+  body,
+  type,
+  listingId,
+  relatedId,
+}: {
+  userId: string;
+  title: string;
+  body: string;
+  type: "listing_approved" | "listing_revision" | "listing_rejected" | "system" | string;
+  listingId?: string;
+  relatedId?: string;
+}): Promise<boolean> {
+  try {
+    const tokens = new Set<string>();
+
+    // 1. profiles tablosundaki fcm_token
+    const { data: userRow } = await supabase
+      .from("profiles")
+      .select("fcm_token")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (userRow?.fcm_token && userRow.fcm_token.trim().length > 10) {
+      tokens.add(userRow.fcm_token.trim());
+    }
+
+    // 2. user_fcm_tokens tablosundaki cihazlar
+    const { data: devTokens } = await supabase
+      .from("user_fcm_tokens")
+      .select("token")
+      .eq("user_id", userId);
+
+    if (devTokens && Array.isArray(devTokens)) {
+      for (const r of devTokens) {
+        if (r.token && r.token.trim().length > 10) {
+          tokens.add(r.token.trim());
+        }
+      }
+    }
+
+    if (tokens.size === 0) {
+      console.warn(`sendListingNotificationPush: Kullanıcı (${userId}) için aktif FCM token bulunamadı.`);
+      return false;
+    }
+
+    const accessToken = await getGoogleAccessToken();
+    let sentCount = 0;
+    const targetListingId = listingId || relatedId || "";
+
+    for (const token of tokens) {
+      try {
+        const payload = createFcmPayload({
+          token,
+          title,
+          body,
+          data: {
+            type,
+            notif_type: type,
+            listing_id: targetListingId,
+            related_id: targetListingId,
+          },
+        });
+        const ok = await sendRawFcm(accessToken, payload);
+        if (ok) sentCount++;
+      } catch (e) {
+        console.warn("Tekil token gönderim hatası:", e);
+      }
+    }
+
+    console.log(`✅ [Push Bildirimi] ${type} bildirimi ${sentCount}/${tokens.size} cihaza iletildi (${title}).`);
+    return sentCount > 0;
+  } catch (error) {
+    console.error("sendListingNotificationPush genel hatası:", error);
+    return false;
   }
 }

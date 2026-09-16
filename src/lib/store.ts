@@ -10,6 +10,7 @@ import type {
 } from "./data";
 import { formatPhone, LISTINGS, REPORTS, SUGGESTIONS, USERS } from "./data";
 import { supabase } from "./supabase";
+import { sendListingNotificationPush } from "./fcm";
 
 export interface SwapOfferStats {
   totalOffers: number;
@@ -269,18 +270,37 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
         listings: s.listings.map((l) => (l.id === id ? { ...l, status: "approved", adminNote: undefined } : l)),
       }));
 
-      if (listing && listing.ownerId) {
+      const ownerId = listing?.ownerId || (data && data[0]?.user_id);
+      const listingTitle = listing?.title || (data && data[0]?.title) || "İlanınız";
+
+      if (ownerId) {
+        const isReApproval = (listing && listing.status === "revision_requested") || !!(listing && listing.adminNote);
+        const notifTitle = isReApproval
+          ? `İlanınız Tekrar Yayında: ${listingTitle}`
+          : `İlanınız Yayında: ${listingTitle}`;
+        const notifMessage = isReApproval
+          ? `"${listingTitle}" başlıklı ilanınızdaki düzenlemeler onaylandı ve tekrar vitrinde yayına alındı.`
+          : `"${listingTitle}" başlıklı ilanınız incelendi ve vitrinde yayına alındı.`;
+
         try {
           await supabase.from("notifications").insert({
-            user_id: listing.ownerId,
-            title: `İlanınız Yayında: ${listing.title}`,
-            message: `"${listing.title}" başlıklı ilanınız incelendi ve vitrinde yayına alındı.`,
+            user_id: ownerId,
+            title: notifTitle,
+            message: notifMessage,
             type: "listing_approved",
             notif_type: "listing_approved",
             related_id: id,
           });
+
+          await sendListingNotificationPush({
+            userId: ownerId,
+            title: notifTitle,
+            body: notifMessage,
+            type: "listing_approved",
+            listingId: id,
+          });
         } catch (notifErr) {
-          console.warn("Notification insert fallback:", notifErr);
+          console.warn("Notification insert / push fallback:", notifErr);
         }
       }
     } catch (e) {
@@ -313,18 +333,31 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
         ),
       }));
 
-      if (listing && listing.ownerId) {
+      const ownerId = listing?.ownerId || (data && data[0]?.user_id);
+      const listingTitle = listing?.title || (data && data[0]?.title) || "İlanınız";
+
+      if (ownerId) {
+        const revTitle = `İlanınızı Gözden Geçirin: ${listingTitle}`;
+        const revMessage = `Yönetici Notu: ${note}`;
         try {
           await supabase.from("notifications").insert({
-            user_id: listing.ownerId,
-            title: `İlanınızı Gözden Geçirin: ${listing.title}`,
-            message: `Yönetici Notu: ${note}`,
+            user_id: ownerId,
+            title: revTitle,
+            message: revMessage,
             type: "listing_revision",
             notif_type: "listing_revision",
             related_id: id,
           });
+
+          await sendListingNotificationPush({
+            userId: ownerId,
+            title: revTitle,
+            body: revMessage,
+            type: "listing_revision",
+            listingId: id,
+          });
         } catch (notifErr) {
-          console.warn("Notification insert fallback:", notifErr);
+          console.warn("Notification insert / push fallback:", notifErr);
         }
       }
     } catch (e) {
@@ -357,19 +390,31 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
         ),
       }));
 
-      if (listing && listing.ownerId) {
+      const ownerId = listing?.ownerId || (data && data[0]?.user_id);
+      const listingTitle = listing?.title || (data && data[0]?.title) || "İlanınız";
+
+      if (ownerId) {
+        const rejTitle = `İlanınız Onaylanmadı: ${listingTitle}`;
+        const rejMessage = `"${listingTitle}" başlıklı ilanınız platform kurallarına uygun görülmedi.\nSebep: ${reason}`;
         try {
           await supabase.from("notifications").insert({
-            user_id: listing.ownerId,
-            title: `İlanınız Onaylanmadı: ${listing.title}`,
-            message: `"${listing.title}" başlıklı ilanınız platform kurallarına uygun görülmedi.
-Sebep: ${reason}`,
+            user_id: ownerId,
+            title: rejTitle,
+            message: rejMessage,
             type: "listing_rejected",
             notif_type: "listing_rejected",
             related_id: id,
           });
+
+          await sendListingNotificationPush({
+            userId: ownerId,
+            title: rejTitle,
+            body: rejMessage,
+            type: "listing_rejected",
+            listingId: id,
+          });
         } catch (notifErr) {
-          console.warn("Notification insert fallback:", notifErr);
+          console.warn("Notification insert / push fallback:", notifErr);
         }
       }
     } catch (e) {
@@ -453,8 +498,17 @@ Sebep: ${reason}`,
             notif_type: "system",
             related_id: targetListingId || reportId,
           });
+
+          await sendListingNotificationPush({
+            userId: reporterId,
+            title: notifTitle,
+            body: notifMessage,
+            type: "system",
+            listingId: targetListingId || reportId,
+            relatedId: targetListingId || reportId,
+          });
         } catch (notifErr) {
-          console.warn("Notification insert error:", notifErr);
+          console.warn("Notification insert / push error:", notifErr);
         }
       }
     } catch (e) {
