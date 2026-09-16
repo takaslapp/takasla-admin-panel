@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Şifre Sıfırlama</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #F1F5F9;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .wrapper {
+      width: 100%;
+      background-color: #F1F5F9;
+      padding: 40px 16px;
+    }
+    .container {
+      max-width: 520px;
+      margin: 0 auto;
+      background-color: #FFFFFF;
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.03);
+      border: 1px solid #E2E8F0;
+    }
+    .header {
+      background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
+      padding: 36px 32px 28px;
+      text-align: center;
+    }
+    .header h1 {
+      color: #FFFFFF;
+      font-size: 24px;
+      font-weight: 800;
+      margin: 12px 0 0;
+      letter-spacing: -0.5px;
+    }
+    .badge {
+      display: inline-block;
+      padding: 6px 14px;
+      background-color: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      border-radius: 9999px;
+      color: #10B981;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .content {
+      padding: 36px 32px 28px;
+      color: #334155;
+      font-size: 15px;
+      line-height: 1.6;
+    }
+    .greeting {
+      font-size: 17px;
+      font-weight: 700;
+      color: #0F172A;
+      margin-bottom: 12px;
+    }
+    .btn-container {
+      text-align: center;
+      margin: 32px 0;
+    }
+    .btn {
+      display: inline-block;
+      background-color: #0F172A;
+      color: #FFFFFF !important;
+      text-decoration: none;
+      font-size: 15px;
+      font-weight: 700;
+      padding: 15px 36px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);
+    }
+    .notice-box {
+      background-color: #F8FAFC;
+      border: 1px solid #E2E8F0;
+      border-radius: 12px;
+      padding: 16px;
+      margin-top: 24px;
+      font-size: 13px;
+      color: #64748B;
+      line-height: 1.5;
+    }
+    .footer {
+      background-color: #F8FAFC;
+      padding: 24px 32px;
+      text-align: center;
+      border-top: 1px solid #E2E8F0;
+      color: #94A3B8;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .footer a {
+      color: #64748B;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="container">
+      <!-- Header -->
+      <div class="header">
+        <span class="badge">Takasla Güvenlik</span>
+        <h1>Şifre Sıfırlama Talebi</h1>
+      </div>
+
+      <!-- İçerik -->
+      <div class="content">
+        <div class="greeting">Merhaba,</div>
+        <p>Takasla hesabınız için yeni bir şifre belirleme talebinde bulundunuz. Yeni şifrenizi oluşturmak için aşağıdaki butona tıklayabilirsiniz:</p>
+
+        <div class="btn-container">
+          <a href="{{ .ConfirmationURL }}" target="_blank" class="btn">Yeni Şifremi Belirle</a>
+        </div>
+
+        <p style="font-size: 13px; color: #64748B; text-align: center;">
+          Buton çalışmıyorsa aşağıdaki bağlantıyı tarayıcınıza kopyalayabilirsiniz:<br>
+          <a href="{{ .ConfirmationURL }}" style="color: #2563EB; word-break: break-all; font-size: 12px;">{{ .ConfirmationURL }}</a>
+        </p>
+
+        <div class="notice-box">
+          🔒 <strong>Güvenlik Uyarısı:</strong> Bu talebi siz yapmadıysanız hesabınız güvendedir ve bu e-postayı dikkate almanıza gerek yoktur. Bağlantı güvenlik nedeniyle 1 saat içinde geçerliliğini yitirecektir.
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="footer">
+        © 2026 Takasla. Tüm hakları saklıdır.<br>
+        Bu e-posta Takasla güvenlik bildirimleri kapsamında otomatik olarak gönderilmiştir.
+      </div>
+    </div>
+  </div>
+</body>
+</html>
