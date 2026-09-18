@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type {
+  CompletedSwapPair,
   Listing,
   ListingStatus,
   Report,
@@ -25,6 +26,7 @@ interface AdminStore {
   reports: Report[];
   suggestions: Suggestion[];
   swapStats: SwapOfferStats;
+  completedSwapPairs: CompletedSwapPair[];
   isLoading: boolean;
 
   fetchDashboardData: () => Promise<void>;
@@ -57,6 +59,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
     acceptedOffers: 0,
     rejectedOffers: 0,
   },
+  completedSwapPairs: [],
   isLoading: false,
 
   fetchDashboardData: async () => {
@@ -69,7 +72,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
           .from("listings")
           .select("*, listing_images(image_url, display_order)")
           .order("created_at", { ascending: false }),
-        supabase.from("swap_offers").select("id, status"),
+        supabase.from("swap_offers").select("*"),
       ]);
 
       const rawProfiles = profilesRes.data || [];
@@ -81,7 +84,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
       const userMap = new Map<string, { name: string; phone: string }>();
 
       for (const l of rawListings) {
-        if (l.user_id) {
+        if (l.user_id && l.status !== "completed" && l.status !== "takaslandi") {
           const currentCount = userListingCounts.get(l.user_id) || 0;
           userListingCounts.set(l.user_id, currentCount + 1);
         }
@@ -230,11 +233,58 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
         reportsList = [];
       }
 
+      // Takaslanan İlanları Birleştir (Unified Swap Pairs)
+      const completedListings = listingsList.filter(
+        (l) => l.status === "completed" || l.status === "takaslandi"
+      );
+      const usedListingIds = new Set<string>();
+      const completedPairs: CompletedSwapPair[] = [];
+
+      // A. swap_offers tablosundaki resmi tekliflerden eşleştir
+      for (const off of rawOffers) {
+        if (off.status === "completed" || off.status === "accepted") {
+          const senderListingId = off.sender_listing_id || off.offered_listing_id;
+          const receiverListingId = off.receiver_listing_id || off.target_listing_id;
+          const itemA = listingsList.find((l) => l.id === senderListingId);
+          const itemB = listingsList.find((l) => l.id === receiverListingId);
+
+          if (itemA && itemB && !usedListingIds.has(itemA.id) && !usedListingIds.has(itemB.id)) {
+            usedListingIds.add(itemA.id);
+            usedListingIds.add(itemB.id);
+            const dt = off.updated_at || off.created_at ? new Date(off.updated_at || off.created_at) : new Date();
+            const dateStr = `${dt.toLocaleDateString("tr-TR")} ${dt.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}`;
+            completedPairs.push({
+              id: off.id || `pair_${itemA.id}_${itemB.id}`,
+              offerId: off.id,
+              itemA,
+              itemB,
+              date: dateStr,
+            });
+          }
+        }
+      }
+
+      // B. Kalan tamamlanan ilanları ikili çiftler halinde birleştir
+      const remainingCompleted = completedListings.filter((l) => !usedListingIds.has(l.id));
+      for (let i = 0; i < remainingCompleted.length; i += 2) {
+        const itemA = remainingCompleted[i];
+        const itemB = remainingCompleted[i + 1] || remainingCompleted[i];
+        usedListingIds.add(itemA.id);
+        if (remainingCompleted[i + 1]) usedListingIds.add(itemB.id);
+        completedPairs.push({
+          id: `pair_${itemA.id}_${itemB.id}`,
+          itemA,
+          itemB,
+          date: itemA.created || "Tamamlandı",
+        });
+      }
+
       set({
         users: usersList,
         listings: listingsList,
         reports: reportsList,
         swapStats,
+        completedSwapPairs: completedPairs,
         isLoading: false,
       });
     } catch (e) {

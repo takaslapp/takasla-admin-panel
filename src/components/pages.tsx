@@ -252,6 +252,7 @@ export function ListingsPage() {
   const rejectListing = useAdminStore((s) => s.rejectListing);
   const deleteListing = useAdminStore((s) => s.deleteListing);
   const deleteMultipleListings = useAdminStore((s) => s.deleteMultipleListings);
+  const completedSwapPairs = useAdminStore((s) => s.completedSwapPairs);
 
   const [q, setQ] = useState("");
   const [activeTab, setActiveTab] = useState<"all" | "pending" | "approved" | "completed" | "revision_requested" | "rejected">("all");
@@ -281,7 +282,7 @@ export function ListingsPage() {
   // Sayılar
   const pendingCount = useMemo(() => listings.filter((l) => l.status === "pending").length, [listings]);
   const approvedCount = useMemo(() => listings.filter((l) => l.status === "approved" || l.status === "yayinda").length, [listings]);
-  const completedCount = useMemo(() => listings.filter((l) => l.status === "completed" || l.status === "takaslandi").length, [listings]);
+  const completedCount = useMemo(() => completedSwapPairs.length, [completedSwapPairs]);
   const revisionCount = useMemo(() => listings.filter((l) => l.status === "revision_requested").length, [listings]);
   const rejectedCount = useMemo(() => listings.filter((l) => l.status === "rejected").length, [listings]);
 
@@ -302,6 +303,15 @@ export function ListingsPage() {
       return matchTab && matchSearch;
     });
   }, [listings, activeTab, q]);
+
+  const filteredCompletedPairs = useMemo(() => {
+    if (!q.trim()) return completedSwapPairs;
+    const lower = q.toLowerCase();
+    return completedSwapPairs.filter((p) => {
+      const searchStr = `${p.itemA.title} ${p.itemA.ownerName} ${p.itemA.ownerPhone} ${p.itemA.city} ${p.itemA.category} ${p.itemB.title} ${p.itemB.ownerName} ${p.itemB.ownerPhone} ${p.itemB.city} ${p.itemB.category}`.toLowerCase();
+      return searchStr.includes(lower);
+    });
+  }, [completedSwapPairs, q]);
 
   // Toplu Seçim Hesaplamaları (Tamamlanmış takaslar seçilemez ve silinemez)
   const selectableFiltered = useMemo(
@@ -543,11 +553,15 @@ export function ListingsPage() {
         )}
 
         <Panel
-          title="İlan Listesi"
-          subtitle={`${filtered.length} ilan listeleniyor${selectedIds.length > 0 ? ` · ${selectedIds.length} seçildi` : ""}`}
+          title={activeTab === "completed" ? "Birleşik Takas Listesi" : "İlan Listesi"}
+          subtitle={
+            activeTab === "completed"
+              ? `${filteredCompletedPairs.length} tamamlanan takas listeleniyor (birleşik eşleşmeler)`
+              : `${filtered.length} ilan listeleniyor${selectedIds.length > 0 ? ` · ${selectedIds.length} seçildi` : ""}`
+          }
           action={
             <div className="flex items-center gap-2">
-              {filtered.length > 0 && (
+              {activeTab !== "completed" && filtered.length > 0 && (
                 <Button
                   size="sm"
                   variant={isAllFilteredSelected ? "dark" : "outline"}
@@ -560,9 +574,205 @@ export function ListingsPage() {
             </div>
           }
         >
-          <Toolbar value={q} onChange={setQ} placeholder="İlan başlığı, sahibi, kategori, şehir veya takas tercihi ara..." />
+          <Toolbar
+            value={q}
+            onChange={setQ}
+            placeholder={
+              activeTab === "completed"
+                ? "Takaslanan ürün, sahip adı, şehir veya kategori ara..."
+                : "İlan başlığı, sahibi, kategori, şehir veya takas tercihi ara..."
+            }
+          />
 
-          {/* Mobil İlan Kartları */}
+          {/* Takaslananlar Sekmesinde: BİRLEŞİK TAKAS KARTLARI */}
+          {activeTab === "completed" ? (
+            <div className="space-y-4">
+              {filteredCompletedPairs.length === 0 ? (
+                <div className="py-12 text-center rounded-2xl border border-dashed border-line bg-shell/20">
+                  <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-shell text-muted mb-3">
+                    <ArrowLeftRight className="size-6" />
+                  </div>
+                  <p className="font-semibold text-ink text-sm">Tamamlanan takas bulunamadı</p>
+                  <p className="text-xs text-muted mt-1">
+                    Kullanıcılar her iki tarafın onayıyla takas gerçekleştirdiğinde burada birleşik çiftler halinde listelenir.
+                  </p>
+                </div>
+              ) : (
+                filteredCompletedPairs.map((pair) => {
+                  const hasPhotoA = pair.itemA.images && pair.itemA.images.length > 0;
+                  const photoA = hasPhotoA ? pair.itemA.images[0] : null;
+                  const hasPhotoB = pair.itemB.images && pair.itemB.images.length > 0;
+                  const photoB = hasPhotoB ? pair.itemB.images[0] : null;
+
+                  return (
+                    <div
+                      key={pair.id}
+                      className="rounded-2xl border border-emerald-300/80 bg-gradient-to-b from-emerald-50/40 to-white p-4 sm:p-5 shadow-sm space-y-4 transition-all hover:shadow-md"
+                    >
+                      {/* Üst Bar: Başlık, Durum ve Tarih */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-emerald-100 pb-3">
+                        <div className="flex items-center gap-2.5">
+                          <span className="flex size-8 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm font-bold">
+                            <ArrowLeftRight className="size-4" />
+                          </span>
+                          <div>
+                            <h4 className="font-bold text-sm text-emerald-950 flex items-center gap-2">
+                              Birleşik Takas İşlemi
+                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-800">
+                                <Check className="size-3" /> Başarılı
+                              </span>
+                            </h4>
+                            <p className="text-xs text-emerald-800/80">
+                              İki kullanıcının karşılıklı onayı ile tamamlanan takas
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 text-xs text-muted">
+                          <Clock className="size-3.5" />
+                          <span>{pair.date}</span>
+                        </div>
+                      </div>
+
+                      {/* İki Ürünün Yan Yana / Alt Alta Görünümü */}
+                      <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr] items-center gap-4">
+                        {/* 1. Ürün & Sahibi */}
+                        <div className="rounded-xl border border-line/80 bg-white p-3.5 shadow-sm space-y-2.5">
+                          <div className="flex items-start gap-3">
+                            <div
+                              onClick={() => {
+                                setPreviewListing(pair.itemA);
+                                setSelectedPhotoIndex(0);
+                              }}
+                              className="relative size-16 shrink-0 cursor-pointer overflow-hidden rounded-xl border border-line bg-shell/50 hover:opacity-90"
+                            >
+                              {photoA ? (
+                                <img
+                                  src={photoA}
+                                  alt={pair.itemA.title}
+                                  className="size-full object-cover"
+                                  onError={(e) => {
+                                    (e.target as HTMLElement).style.display = "none";
+                                  }}
+                                />
+                              ) : (
+                                <div className="grid size-full place-items-center text-muted">
+                                  <Package className="size-5 opacity-40" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <span className="inline-block rounded bg-emerald-100/70 text-emerald-900 text-[10px] font-bold px-1.5 py-0.5 mb-1">
+                                1. TAKAS ÜRÜNÜ
+                              </span>
+                              <h5
+                                onClick={() => {
+                                  setPreviewListing(pair.itemA);
+                                  setSelectedPhotoIndex(0);
+                                }}
+                                className="font-bold text-sm text-ink line-clamp-1 cursor-pointer hover:text-forest"
+                              >
+                                {pair.itemA.title}
+                              </h5>
+                              <p className="text-xs text-muted flex items-center gap-1 mt-0.5">
+                                <MapPin className="size-3 shrink-0" /> {pair.itemA.city} · {pair.itemA.category}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="pt-2 border-t border-line/50 flex items-center justify-between text-xs">
+                            <span className="text-muted">
+                              Sahip: <strong className="text-ink font-semibold">{pair.itemA.ownerName}</strong> ({pair.itemA.ownerPhone})
+                            </span>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-[11px] px-2 text-forest border-forest/30 bg-forest/5"
+                              onClick={() => {
+                                setPreviewListing(pair.itemA);
+                                setSelectedPhotoIndex(0);
+                              }}
+                            >
+                              <Eye className="size-3 mr-1" /> İncele
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Ortadaki Takas İkonu (Desktop) / Çizgi (Mobile) */}
+                        <div className="flex items-center justify-center py-1 lg:py-0">
+                          <div className="flex size-10 items-center justify-center rounded-full bg-emerald-600 text-white shadow-md border-2 border-white">
+                            <ArrowLeftRight className="size-5" />
+                          </div>
+                        </div>
+
+                        {/* 2. Ürün & Sahibi */}
+                        <div className="rounded-xl border border-line/80 bg-white p-3.5 shadow-sm space-y-2.5">
+                          <div className="flex items-start gap-3">
+                            <div
+                              onClick={() => {
+                                setPreviewListing(pair.itemB);
+                                setSelectedPhotoIndex(0);
+                              }}
+                              className="relative size-16 shrink-0 cursor-pointer overflow-hidden rounded-xl border border-line bg-shell/50 hover:opacity-90"
+                            >
+                              {photoB ? (
+                                <img
+                                  src={photoB}
+                                  alt={pair.itemB.title}
+                                  className="size-full object-cover"
+                                  onError={(e) => {
+                                    (e.target as HTMLElement).style.display = "none";
+                                  }}
+                                />
+                              ) : (
+                                <div className="grid size-full place-items-center text-muted">
+                                  <Package className="size-5 opacity-40" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <span className="inline-block rounded bg-emerald-100/70 text-emerald-900 text-[10px] font-bold px-1.5 py-0.5 mb-1">
+                                2. TAKAS ÜRÜNÜ
+                              </span>
+                              <h5
+                                onClick={() => {
+                                  setPreviewListing(pair.itemB);
+                                  setSelectedPhotoIndex(0);
+                                }}
+                                className="font-bold text-sm text-ink line-clamp-1 cursor-pointer hover:text-forest"
+                              >
+                                {pair.itemB.title}
+                              </h5>
+                              <p className="text-xs text-muted flex items-center gap-1 mt-0.5">
+                                <MapPin className="size-3 shrink-0" /> {pair.itemB.city} · {pair.itemB.category}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="pt-2 border-t border-line/50 flex items-center justify-between text-xs">
+                            <span className="text-muted">
+                              Sahip: <strong className="text-ink font-semibold">{pair.itemB.ownerName}</strong> ({pair.itemB.ownerPhone})
+                            </span>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-[11px] px-2 text-forest border-forest/30 bg-forest/5"
+                              onClick={() => {
+                                setPreviewListing(pair.itemB);
+                                setSelectedPhotoIndex(0);
+                              }}
+                            >
+                              <Eye className="size-3 mr-1" /> İncele
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          ) : (
+            <>
+              {/* Mobil İlan Kartları */}
           <div className="space-y-3.5 lg:hidden">
             {filtered.length === 0 ? (
               <p className="py-8 text-center text-muted text-sm">Bu filtreleme kriterine uygun ilan bulunamadı.</p>
@@ -1015,6 +1225,8 @@ export function ListingsPage() {
               </tbody>
             </table>
           </div>
+            </>
+          )}
         </Panel>
       </div>
 

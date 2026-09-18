@@ -42,6 +42,14 @@ export type Listing = {
   rejectReason?: string;
 };
 
+export type CompletedSwapPair = {
+  id: string;
+  offerId?: string;
+  itemA: Listing;
+  itemB: Listing;
+  date: string;
+};
+
 export type Report = {
   id: string;
   subject: string;
