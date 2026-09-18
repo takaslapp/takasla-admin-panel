@@ -6,7 +6,9 @@ export type ListingStatus =
   | "rejected"
   | "deleted"
   | "yayinda"
-  | "incelemede";
+  | "incelemede"
+  | "completed"
+  | "takaslandi";
 export type ReportStatus = "acik" | "inceleniyor" | "cozuldu" | "reddedildi";
 export type SuggestionStatus = "yeni" | "degerlendiriliyor" | "uygulandi" | "arsiv";
 

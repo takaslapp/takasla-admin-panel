@@ -254,7 +254,7 @@ export function ListingsPage() {
   const deleteMultipleListings = useAdminStore((s) => s.deleteMultipleListings);
 
   const [q, setQ] = useState("");
-  const [activeTab, setActiveTab] = useState<"all" | "pending" | "approved" | "revision_requested" | "rejected">("all");
+  const [activeTab, setActiveTab] = useState<"all" | "pending" | "approved" | "completed" | "revision_requested" | "rejected">("all");
 
   // Toplu Seçim Durumu
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -281,6 +281,7 @@ export function ListingsPage() {
   // Sayılar
   const pendingCount = useMemo(() => listings.filter((l) => l.status === "pending").length, [listings]);
   const approvedCount = useMemo(() => listings.filter((l) => l.status === "approved" || l.status === "yayinda").length, [listings]);
+  const completedCount = useMemo(() => listings.filter((l) => l.status === "completed" || l.status === "takaslandi").length, [listings]);
   const revisionCount = useMemo(() => listings.filter((l) => l.status === "revision_requested").length, [listings]);
   const rejectedCount = useMemo(() => listings.filter((l) => l.status === "rejected").length, [listings]);
 
@@ -289,6 +290,7 @@ export function ListingsPage() {
       let matchTab = true;
       if (activeTab === "pending") matchTab = l.status === "pending";
       else if (activeTab === "approved") matchTab = l.status === "approved" || l.status === "yayinda";
+      else if (activeTab === "completed") matchTab = l.status === "completed" || l.status === "takaslandi";
       else if (activeTab === "revision_requested") matchTab = l.status === "revision_requested";
       else if (activeTab === "rejected") matchTab = l.status === "rejected";
 
@@ -301,17 +303,21 @@ export function ListingsPage() {
     });
   }, [listings, activeTab, q]);
 
-  // Toplu Seçim Hesaplamaları
-  const isAllFilteredSelected = filtered.length > 0 && filtered.every((l) => selectedIds.includes(l.id));
-  const isSomeFilteredSelected = filtered.some((l) => selectedIds.includes(l.id)) && !isAllFilteredSelected;
+  // Toplu Seçim Hesaplamaları (Tamamlanmış takaslar seçilemez ve silinemez)
+  const selectableFiltered = useMemo(
+    () => filtered.filter((l) => l.status !== "completed" && l.status !== "takaslandi"),
+    [filtered]
+  );
+  const isAllFilteredSelected = selectableFiltered.length > 0 && selectableFiltered.every((l) => selectedIds.includes(l.id));
+  const isSomeFilteredSelected = selectableFiltered.some((l) => selectedIds.includes(l.id)) && !isAllFilteredSelected;
 
   const handleToggleSelectAll = () => {
     if (isAllFilteredSelected) {
-      const filteredIdSet = new Set(filtered.map((l) => l.id));
-      setSelectedIds((prev) => prev.filter((id) => !filteredIdSet.has(id)));
+      const selectableIdSet = new Set(selectableFiltered.map((l) => l.id));
+      setSelectedIds((prev) => prev.filter((id) => !selectableIdSet.has(id)));
     } else {
-      const filteredIds = filtered.map((l) => l.id);
-      setSelectedIds((prev) => Array.from(new Set([...prev, ...filteredIds])));
+      const selectableIds = selectableFiltered.map((l) => l.id);
+      setSelectedIds((prev) => Array.from(new Set([...prev, ...selectableIds])));
     }
   };
 
@@ -467,6 +473,13 @@ export function ListingsPage() {
               Yayındakiler ({approvedCount})
             </Button>
             <Button
+              variant={activeTab === "completed" ? "dark" : "outline"}
+              size="sm"
+              onClick={() => setActiveTab("completed")}
+            >
+              Takaslananlar ({completedCount})
+            </Button>
+            <Button
               variant={activeTab === "revision_requested" ? "dark" : "outline"}
               size="sm"
               onClick={() => setActiveTab("revision_requested")}
@@ -574,9 +587,10 @@ export function ListingsPage() {
                         <input
                           type="checkbox"
                           checked={isSelected}
+                          disabled={l.status === "completed" || l.status === "takaslandi"}
                           onChange={() => handleToggleSelect(l.id)}
-                          className="size-4.5 rounded border-line text-rose-600 focus:ring-rose-500 cursor-pointer accent-rose-600"
-                          title="Seç / Seçimi Kaldır"
+                          className="size-4.5 rounded border-line text-rose-600 focus:ring-rose-500 cursor-pointer accent-rose-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                          title={l.status === "completed" || l.status === "takaslandi" ? "Tamamlanmış takaslar silinemez" : "Seç / Seçimi Kaldır"}
                         />
                         <div
                           onClick={() => {
@@ -644,7 +658,9 @@ export function ListingsPage() {
 
                     <div className="flex items-center justify-between pt-1">
                       <span className="text-xs font-medium text-muted">Durum:</span>
-                      {l.status === "pending" ? (
+                      {l.status === "completed" || l.status === "takaslandi" ? (
+                        <StatusChip tone="ok">Takas Tamamlandı</StatusChip>
+                      ) : l.status === "pending" ? (
                         <StatusChip tone="warn">Onay Bekliyor</StatusChip>
                       ) : l.status === "revision_requested" ? (
                         <StatusChip tone="warn">Revize İstendi</StatusChip>
@@ -668,7 +684,7 @@ export function ListingsPage() {
                         <Eye className="size-3 mr-1" /> İncele
                       </Button>
 
-                      {l.status === "pending" && (
+                      {l.status !== "completed" && l.status !== "takaslandi" && (
                         <>
                           <Button
                             size="sm"
@@ -696,15 +712,17 @@ export function ListingsPage() {
                         </>
                       )}
 
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 h-8 px-2 text-xs"
-                        onClick={() => handleOpenDelete(l.id, l.title)}
-                        title="İlanı Sil"
-                      >
-                        <Trash2 className="size-3.5" />
-                      </Button>
+                      {l.status !== "completed" && l.status !== "takaslandi" && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 h-8 px-2 text-xs"
+                          onClick={() => handleOpenDelete(l.id, l.title)}
+                          title="İlanı Sil"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 );
@@ -764,9 +782,10 @@ export function ListingsPage() {
                           <input
                             type="checkbox"
                             checked={isSelected}
+                            disabled={l.status === "completed" || l.status === "takaslandi"}
                             onChange={() => handleToggleSelect(l.id)}
-                            className="size-4 rounded border-line text-rose-600 focus:ring-rose-500 cursor-pointer accent-rose-600"
-                            title="İlanı Seç"
+                            className="size-4 rounded border-line text-rose-600 focus:ring-rose-500 cursor-pointer accent-rose-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                            title={l.status === "completed" || l.status === "takaslandi" ? "Tamamlanmış takaslar silinemez" : "İlanı Seç"}
                           />
                         </td>
 
@@ -842,7 +861,12 @@ export function ListingsPage() {
 
                         {/* 5. Moderasyon Durumu */}
                         <td className="py-3.5">
-                          {l.status === "pending" ? (
+                          {l.status === "completed" || l.status === "takaslandi" ? (
+                            <div>
+                              <StatusChip tone="ok">Takas Tamamlandı</StatusChip>
+                              <span className="block text-[11px] text-emerald-800 mt-0.5 font-medium">Tarihsel Kayıt</span>
+                            </div>
+                          ) : l.status === "pending" ? (
                             <div>
                               <StatusChip tone="warn">Onay Bekliyor</StatusChip>
                               <span className="block text-[11px] text-amber-700 mt-0.5 font-medium">İnceleme Gerekli</span>
@@ -888,7 +912,7 @@ export function ListingsPage() {
                             </Button>
 
                             {/* DURUMA GÖRE AKSİYONLAR */}
-                            {l.status === "pending" ? (
+                            {l.status === "completed" || l.status === "takaslandi" ? null : l.status === "pending" ? (
                               <>
                                 <Button
                                   size="sm"
@@ -970,16 +994,18 @@ export function ListingsPage() {
                               </Button>
                             )}
 
-                            {/* Kalıcı Sil Butonu */}
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="text-muted hover:text-rose-600"
-                              onClick={() => handleOpenDelete(l.id, l.title)}
-                              title="İlanı Kalıcı Sil"
-                            >
-                              <Trash2 className="size-4" />
-                            </Button>
+                            {/* Kalıcı Sil Butonu (Tamamlanmış takaslarda gösterilmez) */}
+                            {l.status !== "completed" && l.status !== "takaslandi" && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-muted hover:text-rose-600"
+                                onClick={() => handleOpenDelete(l.id, l.title)}
+                                title="İlanı Kalıcı Sil"
+                              >
+                                <Trash2 className="size-4" />
+                              </Button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -1090,7 +1116,9 @@ export function ListingsPage() {
                 <div className="rounded-xl border border-line bg-shell/30 p-3">
                   <span className="text-[11px] font-medium text-muted">Mevcut Moderasyon Durumu</span>
                   <div className="mt-1">
-                    {previewListing.status === "pending" ? (
+                    {previewListing.status === "completed" || previewListing.status === "takaslandi" ? (
+                      <StatusChip tone="ok">Takas Tamamlandı</StatusChip>
+                    ) : previewListing.status === "pending" ? (
                       <StatusChip tone="warn">Onay Bekliyor</StatusChip>
                     ) : previewListing.status === "revision_requested" ? (
                       <StatusChip tone="warn">Revize İstendi</StatusChip>
@@ -1102,6 +1130,19 @@ export function ListingsPage() {
                   </div>
                 </div>
               </div>
+
+              {/* Tamamlanmış Takas Bilgi Kartı */}
+              {(previewListing.status === "completed" || previewListing.status === "takaslandi") && (
+                <div className="rounded-xl border border-emerald-300 bg-emerald-50/90 p-3.5">
+                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-900 flex items-center gap-1.5">
+                    <Check className="size-4 text-emerald-700" />
+                    Takas Başarıyla Tamamlandı (Kalıcı Arşiv)
+                  </span>
+                  <p className="mt-1 text-xs sm:text-sm text-emerald-950 leading-relaxed font-medium">
+                    Bu ürünün takası karşılıklı olarak onaylanmış ve tamamlanmıştır. Tarihsel ve istatistiksel kayıt olarak korunmaktadır; sistemden silinemez, düzenlenemez veya tekrar yayına alınamaz.
+                  </p>
+                </div>
+              )}
 
               {/* Takas Tercihi */}
               <div className="rounded-xl border border-emerald-200/70 bg-emerald-50/70 p-3">
@@ -1141,7 +1182,7 @@ export function ListingsPage() {
               </Button>
 
               <div className="flex flex-wrap items-center gap-2">
-                {previewListing.status === "pending" ? (
+                {previewListing.status === "completed" || previewListing.status === "takaslandi" ? null : previewListing.status === "pending" ? (
                   <>
                     <Button
                       variant="outline"

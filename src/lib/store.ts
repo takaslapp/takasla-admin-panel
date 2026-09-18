@@ -250,6 +250,10 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
 
   approveListing: async (id: string) => {
     const listing = get().listings.find((l) => l.id === id);
+    if (listing?.status === "completed" || listing?.status === "takaslandi") {
+      console.warn("Tamamlanmış takas ilanı tekrar onaylanamaz:", id);
+      return;
+    }
     try {
       const { data, error } = await supabase
         .from("listings")
@@ -311,6 +315,10 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
 
   requestRevision: async (id: string, note: string) => {
     const listing = get().listings.find((l) => l.id === id);
+    if (listing?.status === "completed" || listing?.status === "takaslandi") {
+      console.warn("Tamamlanmış takas ilanı revize edilemez:", id);
+      return;
+    }
     try {
       const { data, error } = await supabase
         .from("listings")
@@ -368,6 +376,10 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
 
   rejectListing: async (id: string, reason: string) => {
     const listing = get().listings.find((l) => l.id === id);
+    if (listing?.status === "completed" || listing?.status === "takaslandi") {
+      console.warn("Tamamlanmış takas ilanı reddedilemez:", id);
+      return;
+    }
     try {
       const { data, error } = await supabase
         .from("listings")
@@ -424,6 +436,11 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
   },
 
   deleteListing: async (id: string) => {
+    const listing = get().listings.find((l) => l.id === id);
+    if (listing?.status === "completed" || listing?.status === "takaslandi") {
+      console.warn("Tamamlanmış takas ilanı silinemez:", id);
+      return;
+    }
     set((s) => ({
       listings: s.listings.filter((l) => l.id !== id),
     }));
@@ -437,8 +454,12 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
   },
 
   deleteMultipleListings: async (ids: string[]) => {
-    if (ids.length === 0) return;
-    const idSet = new Set(ids);
+    const safeIds = ids.filter((id) => {
+      const l = get().listings.find((item) => item.id === id);
+      return l?.status !== "completed" && l?.status !== "takaslandi";
+    });
+    if (safeIds.length === 0) return;
+    const idSet = new Set(safeIds);
     set((s) => ({
       listings: s.listings.filter((l) => !idSet.has(l.id)),
     }));
