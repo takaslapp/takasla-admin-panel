@@ -916,7 +916,7 @@ export function ListingsPage() {
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-line text-xs font-semibold text-muted">
-                  <th className="py-3 pr-2 w-10 text-center">
+                  <th className="py-3.5 px-3 w-10 text-center">
                     <input
                       type="checkbox"
                       checked={isAllFilteredSelected}
@@ -928,12 +928,12 @@ export function ListingsPage() {
                       title="Filtrelenen Tümünü Seç / Kaldır"
                     />
                   </th>
-                  <th className="py-3">Ürün / İlan</th>
-                  <th className="py-3">İlan Sahibi</th>
-                  <th className="py-3">Kategori & Durum</th>
-                  <th className="py-3">İstenen Takas</th>
-                  <th className="py-3">Durum</th>
-                  <th className="py-3 text-right pr-2">Aksiyonlar</th>
+                  <th className="py-3.5 px-3 min-w-[300px]">Ürün / İlan</th>
+                  <th className="py-3.5 px-3 min-w-[170px]">İlan Sahibi</th>
+                  <th className="py-3.5 px-3 min-w-[140px]">Kategori & Durum</th>
+                  <th className="py-3.5 px-3 min-w-[150px]">İstenen Takas</th>
+                  <th className="py-3.5 px-3 min-w-[150px]">Durum</th>
+                  <th className="py-3.5 px-3 text-right">Aksiyonlar</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line/60">
@@ -957,7 +957,7 @@ export function ListingsPage() {
                           className="bg-emerald-50/40 hover:bg-emerald-50/70 transition-colors border-b border-emerald-200/80 group"
                         >
                           {/* 0. Checkbox (Disabled) */}
-                          <td className="py-3.5 pr-2 text-center">
+                          <td className="py-4 px-3 text-center">
                             <input
                               type="checkbox"
                               disabled
@@ -968,7 +968,7 @@ export function ListingsPage() {
                           </td>
 
                           {/* 1. Ürün / İlan (İlan A ⇄ İlan B) */}
-                          <td className="py-3.5 max-w-[360px]">
+                          <td className="py-4 px-3 max-w-[360px]">
                             <div className="flex items-center gap-2">
                               {/* Ürün A */}
                               <div
@@ -1040,37 +1040,42 @@ export function ListingsPage() {
                           </td>
 
                           {/* 2. İlan Sahibi (Sahip A ⇄ Sahip B) */}
-                          <td className="py-3.5">
+                          <td className="py-4 px-3">
                             <div className="text-xs space-y-0.5">
-                              <div className="flex items-center gap-1 font-semibold text-ink">
+                              <div className="flex items-center gap-1.5 font-semibold text-ink">
                                 <span>{pair.itemA.ownerName}</span>
                                 <ArrowLeftRight className="size-2.5 text-emerald-600 shrink-0" />
                                 <span>{pair.itemB.ownerName}</span>
                               </div>
                               <p className="text-[11px] text-muted">
-                                {pair.itemA.ownerPhone} · {pair.itemB.ownerPhone}
+                                {[pair.itemA.city, pair.itemB.city].filter(Boolean).join(' ⇄ ') || 'Konum belirtilmedi'}
                               </p>
                             </div>
                           </td>
 
                           {/* 3. Kategori & Durum */}
-                          <td className="py-3.5">
+                          <td className="py-4 px-3">
                             <span className="inline-flex rounded-full bg-emerald-100 text-emerald-900 px-2.5 py-0.5 text-xs font-semibold">
                               {pair.itemA.category}
                             </span>
                             <p className="text-[11px] text-emerald-800/80 mt-0.5 font-medium">Karşılıklı Takas</p>
                           </td>
 
-                          {/* 4. İstenen Takas (Takas Yapıldı) */}
-                          <td className="py-3.5 max-w-[200px]">
-                            <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-900 bg-emerald-100/70 rounded-lg px-2 py-1.5 border border-emerald-300/60">
-                              <Check className="size-3.5 text-emerald-700 shrink-0" />
-                              <span className="truncate">Başarıyla Takaslandı</span>
+                          {/* 4. İstenen Takas (Birebir Eşleşti - Sade & Ferah) */}
+                          <td className="py-4 px-3 max-w-[180px]">
+                            <div className="text-xs">
+                              <span className="font-semibold text-emerald-950 flex items-center gap-1">
+                                <ArrowLeftRight className="size-3 text-emerald-600 shrink-0" />
+                                Birebir Takas
+                              </span>
+                              <p className="text-[11px] text-muted truncate mt-0.5">
+                                Karşılıklı el değiştirdi
+                              </p>
                             </div>
                           </td>
 
                           {/* 5. Moderasyon Durumu */}
-                          <td className="py-3.5">
+                          <td className="py-4 px-3">
                             <div>
                               <StatusChip tone="ok">Takas Tamamlandı</StatusChip>
                               <span className="block text-[11px] text-emerald-800 mt-0.5 font-medium flex items-center gap-1">
@@ -1080,12 +1085,12 @@ export function ListingsPage() {
                           </td>
 
                           {/* 6. Aksiyonlar */}
-                          <td className="py-3.5 text-right pr-2">
+                          <td className="py-4 px-3 text-right">
                             <div className="flex items-center justify-end gap-1.5">
                               <Button
                                 size="sm"
                                 variant="outline"
-                                className="h-8 text-xs font-semibold text-forest border-forest/30 bg-white hover:bg-forest/10 px-2"
+                                className="h-8 text-xs font-semibold text-forest border-forest/30 bg-white hover:bg-forest/10 px-2.5 shadow-xs"
                                 onClick={() => {
                                   setPreviewListing(pair.itemA);
                                   setSelectedPhotoIndex(0);
@@ -1097,7 +1102,7 @@ export function ListingsPage() {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                className="h-8 text-xs font-semibold text-forest border-forest/30 bg-white hover:bg-forest/10 px-2"
+                                className="h-8 text-xs font-semibold text-forest border-forest/30 bg-white hover:bg-forest/10 px-2.5 shadow-xs"
                                 onClick={() => {
                                   setPreviewListing(pair.itemB);
                                   setSelectedPhotoIndex(0);
@@ -1128,7 +1133,7 @@ export function ListingsPage() {
                         }`}
                       >
                         {/* 0. Checkbox */}
-                        <td className="py-3.5 pr-2 text-center">
+                        <td className="py-4 px-3 text-center">
                           <input
                             type="checkbox"
                             checked={isSelected}
@@ -1139,7 +1144,7 @@ export function ListingsPage() {
                         </td>
 
                         {/* 1. Ürün & Görsel */}
-                        <td className="py-3.5 max-w-[280px]">
+                        <td className="py-4 px-3 max-w-[280px]">
                           <div className="flex items-center gap-3">
                             <div
                               onClick={() => {
@@ -1191,13 +1196,13 @@ export function ListingsPage() {
                         </td>
 
                         {/* 2. İlan Sahibi */}
-                        <td className="py-3.5">
+                        <td className="py-4 px-3">
                           <p className="font-semibold text-ink text-sm">{l.ownerName}</p>
                           <p className="text-xs text-muted">{l.ownerPhone}</p>
                         </td>
 
                         {/* 3. Kategori & Durum */}
-                        <td className="py-3.5">
+                        <td className="py-4 px-3">
                           <span className="inline-flex rounded-full bg-shell px-2.5 py-0.5 text-xs font-medium text-ink">
                             {l.category}
                           </span>
@@ -1205,7 +1210,7 @@ export function ListingsPage() {
                         </td>
 
                         {/* 4. Takas Tercihi */}
-                        <td className="py-3.5 max-w-[200px]">
+                        <td className="py-4 px-3 max-w-[200px]">
                           <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-900 bg-emerald-50/80 rounded-lg px-2 py-1.5 border border-emerald-200/60">
                             <ArrowLeftRight className="size-3 text-emerald-700 shrink-0" />
                             <span className="line-clamp-2">{l.wants}</span>
@@ -1213,7 +1218,7 @@ export function ListingsPage() {
                         </td>
 
                         {/* 5. Moderasyon Durumu */}
-                        <td className="py-3.5">
+                        <td className="py-4 px-3">
                           {l.status === "pending" ? (
                             <div>
                               <StatusChip tone="warn">Onay Bekliyor</StatusChip>
@@ -1238,7 +1243,7 @@ export function ListingsPage() {
                         </td>
 
                         {/* 6. Aksiyonlar */}
-                        <td className="py-3.5 text-right pr-2">
+                        <td className="py-4 px-3 text-right">
                           <div className="flex items-center justify-end gap-1.5">
                             <Button
                               size="sm"
