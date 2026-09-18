@@ -251,9 +251,15 @@ export function ListingsPage() {
   const requestRevision = useAdminStore((s) => s.requestRevision);
   const rejectListing = useAdminStore((s) => s.rejectListing);
   const deleteListing = useAdminStore((s) => s.deleteListing);
+  const deleteMultipleListings = useAdminStore((s) => s.deleteMultipleListings);
 
   const [q, setQ] = useState("");
   const [activeTab, setActiveTab] = useState<"all" | "pending" | "approved" | "revision_requested" | "rejected">("all");
+
+  // Toplu Seçim Durumu
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkDeleteModalOpen, setBulkDeleteModalOpen] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
   // Modallar
   const [previewListing, setPreviewListing] = useState<Listing | null>(null);
@@ -295,6 +301,35 @@ export function ListingsPage() {
     });
   }, [listings, activeTab, q]);
 
+  // Toplu Seçim Hesaplamaları
+  const isAllFilteredSelected = filtered.length > 0 && filtered.every((l) => selectedIds.includes(l.id));
+  const isSomeFilteredSelected = filtered.some((l) => selectedIds.includes(l.id)) && !isAllFilteredSelected;
+
+  const handleToggleSelectAll = () => {
+    if (isAllFilteredSelected) {
+      const filteredIdSet = new Set(filtered.map((l) => l.id));
+      setSelectedIds((prev) => prev.filter((id) => !filteredIdSet.has(id)));
+    } else {
+      const filteredIds = filtered.map((l) => l.id);
+      setSelectedIds((prev) => Array.from(new Set([...prev, ...filteredIds])));
+    }
+  };
+
+  const handleToggleSelect = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleClearSelection = () => {
+    setSelectedIds([]);
+  };
+
+  const selectedListings = useMemo(() => {
+    const idSet = new Set(selectedIds);
+    return listings.filter((l) => idSet.has(l.id));
+  }, [listings, selectedIds]);
+
   // Onaylama İşlemi
   const handleApprove = async (id: string, title: string) => {
     try {
@@ -334,7 +369,7 @@ export function ListingsPage() {
     }
   };
 
-  // Reddetme Açma (Sadece onay bekleyenler ve revize istenenler için)
+  // Reddetme Açma
   const handleOpenReject = (listing: Listing) => {
     setRejectListingItem(listing);
     setRejectReason("Platform kurallarına uygun olmayan veya eksik içerik tespit edildi.");
@@ -360,18 +395,19 @@ export function ListingsPage() {
     }
   };
 
-  // Silme İşlemi Başlat
+  // Tekil Silme İşlemi Başlat
   const handleOpenDelete = (id: string, title: string) => {
     setDeleteTarget({ id, title });
   };
 
-  // Silme Onaylama
+  // Tekil Silme Onaylama
   const handleConfirmDelete = async () => {
     if (!deleteTarget) return;
     setIsDeleting(true);
     try {
       await deleteListing(deleteTarget.id);
       toast.success(`"${deleteTarget.title}" başlıklı ilan sistemden kalıcı olarak silindi.`);
+      setSelectedIds((prev) => prev.filter((id) => id !== deleteTarget.id));
       if (previewListing?.id === deleteTarget.id) {
         setPreviewListing(null);
       }
@@ -380,6 +416,26 @@ export function ListingsPage() {
       toast.error(`Silme işlemi başarısız: ${err?.message || "İşlem tamamlanamadı"}`);
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  // Toplu Silme Onaylama
+  const handleConfirmBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    setIsBulkDeleting(true);
+    const count = selectedIds.length;
+    try {
+      await deleteMultipleListings(selectedIds);
+      toast.success(`Seçilen ${count} adet ilan sistemden başarıyla silindi.`);
+      if (previewListing && selectedIds.includes(previewListing.id)) {
+        setPreviewListing(null);
+      }
+      setSelectedIds([]);
+      setBulkDeleteModalOpen(false);
+    } catch (err: any) {
+      toast.error(`Toplu silme sırasında hata oluştu: ${err?.message || "İşlem tamamlanamadı"}`);
+    } finally {
+      setIsBulkDeleting(false);
     }
   };
 
@@ -400,21 +456,15 @@ export function ListingsPage() {
               variant={activeTab === "pending" ? "dark" : "outline"}
               size="sm"
               onClick={() => setActiveTab("pending")}
-              className={pendingCount > 0 ? "border-amber-400 bg-amber-50/60 text-amber-900 hover:bg-amber-100" : ""}
             >
               Onay Bekleyenler ({pendingCount})
-              {pendingCount > 0 && (
-                <span className="ml-1.5 rounded-full bg-amber-500 px-1.5 py-0.2 text-[10px] font-bold text-white">
-                  {pendingCount}
-                </span>
-              )}
             </Button>
             <Button
               variant={activeTab === "approved" ? "dark" : "outline"}
               size="sm"
               onClick={() => setActiveTab("approved")}
             >
-              Yayında ({approvedCount})
+              Yayındakiler ({approvedCount})
             </Button>
             <Button
               variant={activeTab === "revision_requested" ? "dark" : "outline"}
@@ -433,7 +483,70 @@ export function ListingsPage() {
           </div>
         </div>
 
-        <Panel title="İlan Listesi" subtitle={`${filtered.length} ilan listeleniyor`}>
+        {/* TOPLU İŞLEM ÇUBUĞU (Seçim Varsa Görünür) */}
+        {selectedIds.length > 0 && (
+          <div className="sticky top-4 z-30 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rose-300/80 bg-rose-50/95 p-3.5 shadow-lg backdrop-blur-md animate-in fade-in slide-in-from-top-2 duration-150">
+            <div className="flex items-center gap-3">
+              <div className="flex size-9 items-center justify-center rounded-xl bg-rose-600 text-white font-black text-sm shadow-sm">
+                {selectedIds.length}
+              </div>
+              <div>
+                <h4 className="font-bold text-sm text-rose-950">
+                  {selectedIds.length} İlan Seçildi
+                </h4>
+                <p className="text-xs text-rose-800/80">
+                  Toplu silme işlemi için seçilen ilanları kalıcı olarak kaldırabilirsiniz.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="bg-white hover:bg-rose-100/50 text-rose-900 border-rose-300 text-xs font-semibold"
+                onClick={handleToggleSelectAll}
+              >
+                {isAllFilteredSelected ? "Filtrelenenlerin Seçimini Kaldır" : `Filtrelenen Tümünü Seç (${filtered.length})`}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-rose-800 hover:text-rose-950 hover:bg-rose-100/60 text-xs font-semibold"
+                onClick={handleClearSelection}
+              >
+                Seçimi Temizle
+              </Button>
+              <Button
+                size="sm"
+                className="bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold gap-1.5 shadow-sm"
+                onClick={() => setBulkDeleteModalOpen(true)}
+              >
+                <Trash2 className="size-3.5" />
+                <span>Seçilenleri Sil ({selectedIds.length})</span>
+              </Button>
+            </div>
+          </div>
+        )}
+
+        <Panel
+          title="İlan Listesi"
+          subtitle={`${filtered.length} ilan listeleniyor${selectedIds.length > 0 ? ` · ${selectedIds.length} seçildi` : ""}`}
+          action={
+            <div className="flex items-center gap-2">
+              {filtered.length > 0 && (
+                <Button
+                  size="sm"
+                  variant={isAllFilteredSelected ? "dark" : "outline"}
+                  className="text-xs"
+                  onClick={handleToggleSelectAll}
+                >
+                  {isAllFilteredSelected ? "✓ Tüm Seçimi Kaldır" : "Tümünü Seç"}
+                </Button>
+              )}
+            </div>
+          }
+        >
           <Toolbar value={q} onChange={setQ} placeholder="İlan başlığı, sahibi, kategori, şehir veya takas tercihi ara..." />
 
           {/* Mobil İlan Kartları */}
@@ -442,38 +555,56 @@ export function ListingsPage() {
               <p className="py-8 text-center text-muted text-sm">Bu filtreleme kriterine uygun ilan bulunamadı.</p>
             ) : (
               filtered.map((l) => {
+                const isSelected = selectedIds.includes(l.id);
                 const hasPhotos = l.images && l.images.length > 0;
                 const mainPhoto = hasPhotos ? l.images[0] : null;
 
                 return (
-                  <div key={l.id} className="rounded-2xl border border-line/70 bg-card p-3.5 shadow-sm space-y-3">
+                  <div
+                    key={l.id}
+                    className={`rounded-2xl border transition-all p-3.5 shadow-sm space-y-3 ${
+                      isSelected
+                        ? "border-rose-400 bg-rose-50/40 ring-2 ring-rose-200"
+                        : "border-line/70 bg-card"
+                    }`}
+                  >
                     <div className="flex items-start gap-3">
-                      <div
-                        onClick={() => {
-                          setPreviewListing(l);
-                          setSelectedPhotoIndex(0);
-                        }}
-                        className="relative size-16 shrink-0 cursor-pointer overflow-hidden rounded-xl border border-line bg-shell/50"
-                      >
-                        {mainPhoto ? (
-                          <img
-                            src={mainPhoto}
-                            alt={l.title}
-                            className="size-full object-cover"
-                            onError={(e) => {
-                              (e.target as HTMLElement).style.display = "none";
-                            }}
-                          />
-                        ) : (
-                          <div className="grid size-full place-items-center text-muted">
-                            <Package className="size-5 opacity-40" />
-                          </div>
-                        )}
-                        {hasPhotos && l.images.length > 1 && (
-                          <span className="absolute bottom-0.5 right-0.5 rounded bg-black/70 px-1 py-0.2 text-[9px] font-bold text-white">
-                            +{l.images.length - 1}
-                          </span>
-                        )}
+                      {/* Checkbox & Görsel */}
+                      <div className="flex items-center gap-2.5 shrink-0">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleToggleSelect(l.id)}
+                          className="size-4.5 rounded border-line text-rose-600 focus:ring-rose-500 cursor-pointer accent-rose-600"
+                          title="Seç / Seçimi Kaldır"
+                        />
+                        <div
+                          onClick={() => {
+                            setPreviewListing(l);
+                            setSelectedPhotoIndex(0);
+                          }}
+                          className="relative size-16 shrink-0 cursor-pointer overflow-hidden rounded-xl border border-line bg-shell/50"
+                        >
+                          {mainPhoto ? (
+                            <img
+                              src={mainPhoto}
+                              alt={l.title}
+                              className="size-full object-cover"
+                              onError={(e) => {
+                                (e.target as HTMLElement).style.display = "none";
+                              }}
+                            />
+                          ) : (
+                            <div className="grid size-full place-items-center text-muted">
+                              <Package className="size-5 opacity-40" />
+                            </div>
+                          )}
+                          {hasPhotos && l.images.length > 1 && (
+                            <span className="absolute bottom-0.5 right-0.5 rounded bg-black/70 px-1 py-0.2 text-[9px] font-bold text-white">
+                              +{l.images.length - 1}
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                       <div className="min-w-0 flex-1">
@@ -569,7 +700,7 @@ export function ListingsPage() {
                         size="sm"
                         variant="ghost"
                         className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 h-8 px-2 text-xs"
-                        onClick={() => setDeleteTarget({ id: l.id, title: l.title })}
+                        onClick={() => handleOpenDelete(l.id, l.title)}
                         title="İlanı Sil"
                       >
                         <Trash2 className="size-3.5" />
@@ -581,33 +712,64 @@ export function ListingsPage() {
             )}
           </div>
 
-          {/* Masaüstü Tablosu */}
-          <div className="hidden lg:block w-full max-w-full overflow-x-auto min-w-0">
-            <table className="w-full min-w-[1000px] text-left text-sm">
-              <thead className="text-xs uppercase tracking-wide text-muted">
-                <tr className="border-b border-line">
-                  <th className="pb-3 font-semibold">Ürün & Görsel</th>
-                  <th className="pb-3 font-semibold">İlan Sahibi</th>
-                  <th className="pb-3 font-semibold">Kategori & Durum</th>
-                  <th className="pb-3 font-semibold">Takas Tercihi</th>
-                  <th className="pb-3 font-semibold">Moderasyon Durumu</th>
-                  <th className="pb-3 font-semibold text-right">İşlemler</th>
+          {/* Masaüstü İlan Tablosu */}
+          <div className="hidden lg:block overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-line text-xs font-semibold text-muted">
+                  <th className="py-3 pr-2 w-10 text-center">
+                    <input
+                      type="checkbox"
+                      checked={isAllFilteredSelected}
+                      ref={(el) => {
+                        if (el) el.indeterminate = isSomeFilteredSelected;
+                      }}
+                      onChange={handleToggleSelectAll}
+                      className="size-4 rounded border-line text-rose-600 focus:ring-rose-500 cursor-pointer accent-rose-600"
+                      title="Filtrelenen Tümünü Seç / Kaldır"
+                    />
+                  </th>
+                  <th className="py-3">Ürün / İlan</th>
+                  <th className="py-3">İlan Sahibi</th>
+                  <th className="py-3">Kategori & Durum</th>
+                  <th className="py-3">İstenen Takas</th>
+                  <th className="py-3">Durum</th>
+                  <th className="py-3 text-right pr-2">Aksiyonlar</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line/60">
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="py-12 text-center text-muted">
+                    <td colSpan={7} className="py-12 text-center text-muted">
                       Bu filtreleme kriterine uygun ilan bulunamadı.
                     </td>
                   </tr>
                 ) : (
                   filtered.map((l) => {
+                    const isSelected = selectedIds.includes(l.id);
                     const hasPhotos = l.images && l.images.length > 0;
                     const mainPhoto = hasPhotos ? l.images[0] : null;
 
                     return (
-                      <tr key={l.id} className="hover:bg-shell/30 transition-colors group">
+                      <tr
+                        key={l.id}
+                        className={`transition-colors group ${
+                          isSelected
+                            ? "bg-rose-50/50 hover:bg-rose-50/80"
+                            : "hover:bg-shell/30"
+                        }`}
+                      >
+                        {/* 0. Checkbox */}
+                        <td className="py-3.5 pr-2 text-center">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => handleToggleSelect(l.id)}
+                            className="size-4 rounded border-line text-rose-600 focus:ring-rose-500 cursor-pointer accent-rose-600"
+                            title="İlanı Seç"
+                          />
+                        </td>
+
                         {/* 1. Ürün & Görsel */}
                         <td className="py-3.5 max-w-[280px]">
                           <div className="flex items-center gap-3">
@@ -709,7 +871,7 @@ export function ListingsPage() {
                         </td>
 
                         {/* 6. İşlemler */}
-                        <td className="py-3.5 text-right">
+                        <td className="py-3.5 text-right pr-2">
                           <div className="flex items-center justify-end gap-1.5">
                             {/* İncele Butonu */}
                             <Button
@@ -728,7 +890,6 @@ export function ListingsPage() {
                             {/* DURUMA GÖRE AKSİYONLAR */}
                             {l.status === "pending" ? (
                               <>
-                                {/* Onayla */}
                                 <Button
                                   size="sm"
                                   variant="outline"
@@ -738,7 +899,6 @@ export function ListingsPage() {
                                 >
                                   <Check className="size-3.5 mr-1" /> Onayla
                                 </Button>
-                                {/* Düzenleme İste */}
                                 <Button
                                   size="sm"
                                   variant="outline"
@@ -748,11 +908,10 @@ export function ListingsPage() {
                                 >
                                   <Edit3 className="size-3.5 mr-1" /> Düzenleme İste
                                 </Button>
-                                {/* Reddet */}
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  className="text-rose-700 hover:bg-rose-50 border-rose-200"
+                                  className="text-rose-700 bg-rose-50 hover:bg-rose-100 border-rose-300"
                                   onClick={() => handleOpenReject(l)}
                                   title="İlanı Reddet"
                                 >
@@ -760,18 +919,15 @@ export function ListingsPage() {
                                 </Button>
                               </>
                             ) : l.status === "approved" || l.status === "yayinda" ? (
-                              <>
-                                {/* YAYINDAKİ İLAN İÇİN ASLA REDDET YOK! SADECE DÜZENLEME İSTE VE SİL */}
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-amber-800 bg-amber-50/70 hover:bg-amber-100 border-amber-300"
-                                  onClick={() => handleOpenRevision(l)}
-                                  title="Kullanıcıya Düzenleme İsteği Gönder"
-                                >
-                                  <Edit3 className="size-3.5 mr-1" /> Düzenleme İste
-                                </Button>
-                              </>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-amber-800 hover:bg-amber-50 border-amber-300"
+                                onClick={() => handleOpenRevision(l)}
+                                title="Düzenleme İsteği Gönder"
+                              >
+                                <Edit3 className="size-3.5 mr-1" /> Düzenleme İste
+                              </Button>
                             ) : l.status === "revision_requested" ? (
                               <>
                                 <Button
@@ -779,7 +935,7 @@ export function ListingsPage() {
                                   variant="outline"
                                   className="text-emerald-700 hover:bg-emerald-50 border-emerald-300"
                                   onClick={() => handleApprove(l.id, l.title)}
-                                  title="İlanı Doğrudan Onayla"
+                                  title="Onayla & Yayına Al"
                                 >
                                   <Check className="size-3.5 mr-1" /> Onayla
                                 </Button>
@@ -790,12 +946,12 @@ export function ListingsPage() {
                                   onClick={() => handleOpenRevision(l)}
                                   title="Revize Notunu Güncelle"
                                 >
-                                  <Edit3 className="size-3.5 mr-1" /> Notu Güncelle
+                                  <Edit3 className="size-3.5 mr-1" /> Revize
                                 </Button>
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  className="text-rose-700 hover:bg-rose-50 border-rose-200"
+                                  className="text-rose-700 hover:bg-rose-50 border-rose-300"
                                   onClick={() => handleOpenReject(l)}
                                   title="İlanı Reddet"
                                 >
@@ -803,7 +959,6 @@ export function ListingsPage() {
                                 </Button>
                               </>
                             ) : (
-                              /* Reddedildi */
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -979,7 +1134,7 @@ export function ListingsPage() {
               )}
             </div>
 
-            {/* Modal Footer (Aksiyon Butonları - Responsive) */}
+            {/* Modal Footer */}
             <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2 border-t border-line bg-shell/30 px-4 py-3 sm:px-6 sm:py-3">
               <Button variant="outline" size="sm" onClick={() => setPreviewListing(null)} className="w-full sm:w-auto">
                 Kapat
@@ -1011,7 +1166,6 @@ export function ListingsPage() {
                   </>
                 ) : previewListing.status === "approved" || previewListing.status === "yayinda" ? (
                   <>
-                    {/* YAYINDAKİ İLANLAR İÇİN SADECE DÜZENLEME İSTE VE SİL */}
                     <Button
                       variant="outline"
                       className="text-amber-800 bg-amber-50 hover:bg-amber-100 border-amber-300"
@@ -1064,7 +1218,7 @@ export function ListingsPage() {
       )}
 
       {/* =========================================================
-          2. DÜZENLEME İSTEĞİ MODALI (Kullanıcıya Bildirim Gider)
+          2. DÜZENLEME İSTEĞİ MODALI
           ========================================================= */}
       {revisionListing && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
@@ -1077,7 +1231,6 @@ export function ListingsPage() {
               &ldquo;{revisionListing.title}&rdquo; başlıklı ilan yayından çekilecek (veya onay bekleyecek) ve kullanıcıya aşağıdaki açıklama mobil bildirim olarak iletilecektir.
             </p>
 
-            {/* Hızlı Şablonlar */}
             <div className="mt-3.5">
               <label className="block text-[11px] font-semibold uppercase text-muted mb-1.5">
                 Hızlı Şablonlar:
@@ -1101,7 +1254,6 @@ export function ListingsPage() {
               </div>
             </div>
 
-            {/* Revizyon Notu Textarea */}
             <div className="mt-4">
               <label className="block text-xs font-semibold uppercase text-muted mb-1">
                 Kullanıcıya İletilecek Revizyon Notu *
@@ -1131,7 +1283,7 @@ export function ListingsPage() {
       )}
 
       {/* =========================================================
-          3. REDDETME MODALI (Sadece Onay Bekleyenler için)
+          3. REDDETME MODALI
           ========================================================= */}
       {rejectListingItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
@@ -1144,7 +1296,6 @@ export function ListingsPage() {
               &ldquo;{rejectListingItem.title}&rdquo; başlıklı ilan reddedilecek ve kullanıcıya aşağıdaki açıklama iletilecektir.
             </p>
 
-            {/* Hızlı Red Şablonları */}
             <div className="mt-3.5">
               <label className="block text-[11px] font-semibold uppercase text-muted mb-1.5">
                 Hızlı Red Sebepleri:
@@ -1193,7 +1344,7 @@ export function ListingsPage() {
       )}
 
       {/* =========================================================
-          4. SİTE TARZINDA KALICI SİLME ONAY MODALI
+          4. TEKİL KALICI SİLME ONAY MODALI
           ========================================================= */}
       {deleteTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4 backdrop-blur-xs">
@@ -1210,7 +1361,6 @@ export function ListingsPage() {
               </div>
             </div>
 
-            {/* Uyarı Kutusu */}
             <div className="mt-4 rounded-xl border border-rose-200/80 bg-rose-50/60 p-3 text-xs text-rose-900 flex items-start gap-2.5">
               <AlertTriangle className="size-4 shrink-0 text-rose-600 mt-0.5" />
               <p className="leading-relaxed">
@@ -1246,13 +1396,83 @@ export function ListingsPage() {
           </div>
         </div>
       )}
+
+      {/* =========================================================
+          5. TOPLU KALICI SİLME ONAY MODALI (Yeni)
+          ========================================================= */}
+      {bulkDeleteModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-lg rounded-2xl bg-card p-6 shadow-2xl ring-1 ring-line animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-start gap-3.5">
+              <div className="grid size-12 shrink-0 place-items-center rounded-xl bg-rose-100 text-rose-600 ring-2 ring-rose-200">
+                <Trash2 className="size-6" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-lg font-bold text-ink">
+                  Seçilen {selectedIds.length} İlanı Kalıcı Olarak Sil
+                </h3>
+                <p className="mt-1 text-xs text-muted leading-relaxed">
+                  Aşağıda listelenen <span className="font-bold text-rose-600">{selectedIds.length}</span> adet ilanı sistemden kalıcı olarak silmek üzeresiniz.
+                </p>
+              </div>
+            </div>
+
+            {/* Silinecek İlanlar Listesi Önizlemesi */}
+            <div className="mt-4 max-h-48 overflow-y-auto rounded-xl border border-line bg-shell/40 p-2.5 divide-y divide-line/60 text-xs">
+              {selectedListings.map((l) => (
+                <div key={l.id} className="py-2 first:pt-1 last:pb-1 flex items-center justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-ink truncate">{l.title}</p>
+                    <p className="text-[11px] text-muted truncate">{l.ownerName} · {l.city} · {l.category}</p>
+                  </div>
+                  <span className="rounded bg-shell px-2 py-0.5 text-[10px] font-medium text-muted shrink-0">
+                    {l.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 rounded-xl border border-rose-300 bg-rose-50/80 p-3 text-xs text-rose-950 flex items-start gap-2.5">
+              <AlertTriangle className="size-4 shrink-0 text-rose-600 mt-0.5" />
+              <p className="leading-relaxed">
+                <strong>Dikkat:</strong> Bu işlem geri alınamaz. Seçilen tüm ilanlar, ilan fotoğrafları ve kullanıcı favorileri veritabanından tamamen silinecektir.
+              </p>
+            </div>
+
+            <div className="mt-6 flex items-center justify-end gap-2.5">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isBulkDeleting}
+                onClick={() => setBulkDeleteModalOpen(false)}
+              >
+                Vazgeç
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                disabled={isBulkDeleting}
+                className="bg-rose-600 hover:bg-rose-700 text-white font-bold"
+                onClick={handleConfirmBulkDelete}
+              >
+                {isBulkDeleting ? (
+                  "Siliniyor..."
+                ) : (
+                  <>
+                    <Trash2 className="size-4 mr-1.5" /> Evet, Seçilen {selectedIds.length} İlanı Sil
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </AdminShell>
   );
 }
 
-
 /* =========================================================================
-   3. ŞİKAYET VE BİLDİRİMLER SAYFASI (Supabase ile Bağlantılı & Canlı Bildirimli)
+   3. ŞİKAYET & MODERASYON MERKEZİ
    ========================================================================= */
 export function ReportsPage() {
   const fetchDashboardData = useAdminStore((s) => s.fetchDashboardData);

@@ -474,6 +474,54 @@ export function saveAnnouncementToHistory(rec: AnnouncementRecord) {
   }
 }
 
+/**
+ * Gönderim Geçmişinden Tekil Kayıt Siler
+ */
+export function deleteAnnouncementFromHistory(id: string): AnnouncementRecord[] {
+  try {
+    const list = getAnnouncementHistory();
+    const updated = list.filter((r) => r.id !== id);
+    localStorage.setItem(
+      "takasla_announcements_history",
+      JSON.stringify(updated),
+    );
+    return updated;
+  } catch (err) {
+    console.warn("deleteAnnouncementFromHistory hatası:", err);
+    return [];
+  }
+}
+
+/**
+ * Gönderim Geçmişinden Çoklu Kayıt Siler
+ */
+export function deleteMultipleAnnouncementsFromHistory(ids: string[]): AnnouncementRecord[] {
+  try {
+    const list = getAnnouncementHistory();
+    const idSet = new Set(ids);
+    const updated = list.filter((r) => !idSet.has(r.id));
+    localStorage.setItem(
+      "takasla_announcements_history",
+      JSON.stringify(updated),
+    );
+    return updated;
+  } catch (err) {
+    console.warn("deleteMultipleAnnouncementsFromHistory hatası:", err);
+    return [];
+  }
+}
+
+/**
+ * Tüm Gönderim Geçmişini Temizler
+ */
+export function clearAllAnnouncementHistory(): void {
+  try {
+    localStorage.removeItem("takasla_announcements_history");
+  } catch (err) {
+    console.warn("clearAllAnnouncementHistory hatası:", err);
+  }
+}
+
 
 /**
  * İlan Durumu Değiştiğinde (Onay, Revize, Red) Kullanıcıya Doğrudan Push Bildirimi Gönderir

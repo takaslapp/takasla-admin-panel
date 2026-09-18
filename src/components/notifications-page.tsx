@@ -19,6 +19,7 @@ import {
   Check,
   Megaphone,
   Radio,
+  Trash2,
   Eye,
   ShieldCheck,
 } from "lucide-react";
@@ -29,6 +30,9 @@ import {
   sendTargetedAnnouncement,
   fetchFcmStats,
   getAnnouncementHistory,
+  deleteAnnouncementFromHistory,
+  deleteMultipleAnnouncementsFromHistory,
+  clearAllAnnouncementHistory,
   type AnnouncementRecord,
 } from "@/lib/fcm";
 
@@ -155,6 +159,12 @@ export function NotificationsPage() {
   const [history, setHistory] = useState<AnnouncementRecord[]>([]);
   const [historySearch, setHistorySearch] = useState("");
   const [previewMode, setPreviewMode] = useState<"lockscreen" | "banner">("lockscreen");
+
+  // Geçmiş Bildirim Silme Durumları
+  const [selectedHistoryIds, setSelectedHistoryIds] = useState<string[]>([]);
+  const [deleteHistoryTarget, setDeleteHistoryTarget] = useState<{ id: string; title: string } | null>(null);
+  const [showClearAllHistoryModal, setShowClearAllHistoryModal] = useState(false);
+  const [showBulkDeleteHistoryModal, setShowBulkDeleteHistoryModal] = useState(false);
 
   const loadData = async () => {
     setIsLoadingStats(true);
@@ -292,6 +302,65 @@ export function NotificationsPage() {
     }
     toast.info("Geçmiş duyuru forma yüklendi.");
     window.scrollTo({ top: 400, behavior: "smooth" });
+  };
+
+  // Geçmiş Seçim İşlemleri
+  const isAllHistorySelected =
+    filteredHistory.length > 0 &&
+    filteredHistory.every((h) => selectedHistoryIds.includes(h.id));
+
+  const isSomeHistorySelected =
+    filteredHistory.some((h) => selectedHistoryIds.includes(h.id)) &&
+    !isAllHistorySelected;
+
+  const handleToggleSelectAllHistory = () => {
+    if (isAllHistorySelected) {
+      const filteredIdSet = new Set(filteredHistory.map((h) => h.id));
+      setSelectedHistoryIds((prev) => prev.filter((id) => !filteredIdSet.has(id)));
+    } else {
+      const filteredIds = filteredHistory.map((h) => h.id);
+      setSelectedHistoryIds((prev) => Array.from(new Set([...prev, ...filteredIds])));
+    }
+  };
+
+  const handleToggleSelectHistory = (id: string) => {
+    setSelectedHistoryIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  // Tekil Geçmiş Kaydı Sil
+  const handleDeleteSingleHistory = (id: string, title: string) => {
+    setDeleteHistoryTarget({ id, title });
+  };
+
+  const handleConfirmDeleteSingleHistory = () => {
+    if (!deleteHistoryTarget) return;
+    const updated = deleteAnnouncementFromHistory(deleteHistoryTarget.id);
+    setHistory(updated);
+    setSelectedHistoryIds((prev) => prev.filter((id) => id !== deleteHistoryTarget.id));
+    setDeleteHistoryTarget(null);
+    toast.success("Bildirim kaydı geçmişten silindi.");
+  };
+
+  // Toplu Geçmiş Kaydı Sil
+  const handleConfirmBulkDeleteHistory = () => {
+    if (selectedHistoryIds.length === 0) return;
+    const count = selectedHistoryIds.length;
+    const updated = deleteMultipleAnnouncementsFromHistory(selectedHistoryIds);
+    setHistory(updated);
+    setSelectedHistoryIds([]);
+    setShowBulkDeleteHistoryModal(false);
+    toast.success(`${count} adet bildirim geçmişten silindi.`);
+  };
+
+  // Tüm Geçmişi Temizle
+  const handleConfirmClearAllHistory = () => {
+    clearAllAnnouncementHistory();
+    setHistory([]);
+    setSelectedHistoryIds([]);
+    setShowClearAllHistoryModal(false);
+    toast.success("Tüm bildirim geçmişi temizlendi.");
   };
 
   return (
@@ -798,20 +867,62 @@ export function NotificationsPage() {
         {/* Gönderim Geçmişi Tablosu */}
         <Panel
           title="Duyuru & Bildirim Geçmişi"
-          subtitle="Daha önce gönderilmiş olan toplu ve hedefli duyuruların listesi"
+          subtitle={`Daha önce gönderilmiş olan duyuruların listesi (${history.length} kayıt)${selectedHistoryIds.length > 0 ? ` · ${selectedHistoryIds.length} seçildi` : ""}`}
           action={
-            <div className="relative w-48 sm:w-64">
-              <Search className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted" />
-              <input
-                type="text"
-                placeholder="Geçmişte ara..."
-                value={historySearch}
-                onChange={(e) => setHistorySearch(e.target.value)}
-                className="w-full rounded-full border border-line/60 bg-card pl-8 pr-3 py-1.5 text-xs text-ink placeholder:text-muted/60 focus:border-forest focus:outline-none"
-              />
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative w-40 sm:w-56">
+                <Search className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted" />
+                <input
+                  type="text"
+                  placeholder="Geçmişte ara..."
+                  value={historySearch}
+                  onChange={(e) => setHistorySearch(e.target.value)}
+                  className="w-full rounded-full border border-line/60 bg-card pl-8 pr-3 py-1.5 text-xs text-ink placeholder:text-muted/60 focus:border-forest focus:outline-none"
+                />
+              </div>
+
+              {selectedHistoryIds.length > 0 ? (
+                <Button
+                  size="sm"
+                  className="bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold gap-1.5 h-8 px-3"
+                  onClick={() => setShowBulkDeleteHistoryModal(true)}
+                >
+                  <Trash2 className="size-3.5" />
+                  <span>Seçilenleri Sil ({selectedHistoryIds.length})</span>
+                </Button>
+              ) : history.length > 0 ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-rose-600 hover:bg-rose-50 border-rose-200 text-xs h-8 px-2.5"
+                  onClick={() => setShowClearAllHistoryModal(true)}
+                  title="Tüm bildirim geçmişini temizle"
+                >
+                  <Trash2 className="size-3.5 mr-1" />
+                  <span>Geçmişi Temizle</span>
+                </Button>
+              ) : null}
             </div>
           }
         >
+          {/* Toplu Seçim Bilgilendirme Çubuğu */}
+          {selectedHistoryIds.length > 0 && (
+            <div className="mb-3 flex items-center justify-between gap-2 rounded-xl border border-rose-200 bg-rose-50/80 p-2.5 text-xs text-rose-950">
+              <span className="font-semibold">
+                {selectedHistoryIds.length} adet duyuru kaydı seçildi
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedHistoryIds([])}
+                  className="text-xs font-semibold text-rose-800 hover:underline"
+                >
+                  Seçimi Temizle
+                </button>
+              </div>
+            </div>
+          )}
+
           {filteredHistory.length === 0 ? (
             <div className="py-12 text-center text-muted">
               <Megaphone className="mx-auto size-8 opacity-40 mb-2" />
@@ -827,63 +938,102 @@ export function NotificationsPage() {
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="border-b border-line/60 text-muted">
+                    <th className="pb-2.5 pr-2 w-8 text-center">
+                      <input
+                        type="checkbox"
+                        checked={isAllHistorySelected}
+                        ref={(el) => {
+                          if (el) el.indeterminate = isSomeHistorySelected;
+                        }}
+                        onChange={handleToggleSelectAllHistory}
+                        className="size-3.5 rounded border-line text-rose-600 focus:ring-rose-500 cursor-pointer accent-rose-600"
+                        title="Tümünü Seç / Kaldır"
+                      />
+                    </th>
                     <th className="pb-2.5 font-semibold">Tarih</th>
                     <th className="pb-2.5 font-semibold">Başlık & Mesaj</th>
                     <th className="pb-2.5 font-semibold">Hedef Kitle</th>
                     <th className="pb-2.5 font-semibold">Cihaz Sayısı</th>
                     <th className="pb-2.5 font-semibold">Durum</th>
-                    <th className="pb-2.5 text-right font-semibold">İşlem</th>
+                    <th className="pb-2.5 text-right font-semibold pr-1">İşlem</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-line/40 text-ink">
-                  {filteredHistory.map((h) => (
-                    <tr key={h.id} className="group hover:bg-shell/40">
-                      <td className="py-3 whitespace-nowrap text-muted font-medium">
-                        {new Date(h.sentAt).toLocaleString("tr-TR", {
-                          day: "2-digit",
-                          month: "short",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </td>
-                      <td className="py-3 pr-4 max-w-xs">
-                        <p className="font-bold truncate text-ink">{h.title}</p>
-                        <p className="text-[11px] text-muted truncate">{h.body}</p>
-                      </td>
-                      <td className="py-3 whitespace-nowrap">
-                        {h.targetType === "all" ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-forest/10 px-2 py-0.5 text-[11px] font-semibold text-forest">
-                            <Megaphone className="size-3" />
-                            Tüm Kullanıcılar
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
-                            <Users className="size-3" />
-                            {h.targetUser || "Özel Kullanıcı"}
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-3 font-semibold">
-                        {h.deviceCount} cihaz
-                      </td>
-                      <td className="py-3 whitespace-nowrap">
-                        {h.status === "success" ? (
-                          <StatusChip tone="ok">İletildi</StatusChip>
-                        ) : (
-                          <StatusChip tone="bad">Hata</StatusChip>
-                        )}
-                      </td>
-                      <td className="py-3 text-right whitespace-nowrap">
-                        <button
-                          type="button"
-                          onClick={() => handleReapplyHistory(h)}
-                          className="rounded-lg px-2.5 py-1 text-xs font-semibold text-forest hover:bg-forest/10 transition-colors"
-                        >
-                          Tekrar Kullan
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {filteredHistory.map((h) => {
+                    const isSelected = selectedHistoryIds.includes(h.id);
+                    return (
+                      <tr
+                        key={h.id}
+                        className={`group transition-colors ${
+                          isSelected ? "bg-rose-50/60" : "hover:bg-shell/40"
+                        }`}
+                      >
+                        <td className="py-3 pr-2 text-center">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => handleToggleSelectHistory(h.id)}
+                            className="size-3.5 rounded border-line text-rose-600 focus:ring-rose-500 cursor-pointer accent-rose-600"
+                            title="Kaydı Seç"
+                          />
+                        </td>
+                        <td className="py-3 whitespace-nowrap text-muted font-medium">
+                          {new Date(h.sentAt).toLocaleString("tr-TR", {
+                            day: "2-digit",
+                            month: "short",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </td>
+                        <td className="py-3 pr-4 max-w-xs">
+                          <p className="font-bold truncate text-ink">{h.title}</p>
+                          <p className="text-[11px] text-muted truncate">{h.body}</p>
+                        </td>
+                        <td className="py-3 whitespace-nowrap">
+                          {h.targetType === "all" ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-forest/10 px-2 py-0.5 text-[11px] font-semibold text-forest">
+                              <Megaphone className="size-3" />
+                              Tüm Kullanıcılar
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                              <Users className="size-3" />
+                              {h.targetUser || "Özel Kullanıcı"}
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 font-semibold">
+                          {h.deviceCount} cihaz
+                        </td>
+                        <td className="py-3 whitespace-nowrap">
+                          {h.status === "success" ? (
+                            <StatusChip tone="ok">İletildi</StatusChip>
+                          ) : (
+                            <StatusChip tone="bad">Hata</StatusChip>
+                          )}
+                        </td>
+                        <td className="py-3 text-right whitespace-nowrap pr-1">
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handleReapplyHistory(h)}
+                              className="rounded-lg px-2.5 py-1 text-xs font-semibold text-forest hover:bg-forest/10 transition-colors"
+                            >
+                              Tekrar Kullan
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteSingleHistory(h.id, h.title)}
+                              className="rounded-lg p-1.5 text-muted hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                              title="Bu bildirimi geçmişten sil"
+                            >
+                              <Trash2 className="size-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -940,6 +1090,116 @@ export function NotificationsPage() {
           </div>
         </div>
       ) : null}
+      {/* Tekil Geçmiş Bildirim Silme Modalı */}
+      {deleteHistoryTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md rounded-2xl bg-card p-6 shadow-2xl ring-1 ring-line animate-in fade-in zoom-in-95">
+            <div className="flex items-start gap-3.5">
+              <div className="grid size-11 shrink-0 place-items-center rounded-xl bg-rose-50 text-rose-600 ring-1 ring-rose-200">
+                <Trash2 className="size-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-base font-bold text-ink">Bildirim Kaydını Sil</h3>
+                <p className="mt-1 text-xs text-muted leading-relaxed">
+                  <span className="font-semibold text-ink">&ldquo;{deleteHistoryTarget.title}&rdquo;</span> başlıklı duyuru kaydını geçmişten silmek istediğinize emin misiniz?
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 flex items-center justify-end gap-2.5">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setDeleteHistoryTarget(null)}
+              >
+                Vazgeç
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                className="bg-rose-600 hover:bg-rose-700 text-white font-bold"
+                onClick={handleConfirmDeleteSingleHistory}
+              >
+                <Trash2 className="size-3.5 mr-1.5" /> Evet, Kaydı Sil
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toplu Geçmiş Bildirim Silme Modalı */}
+      {showBulkDeleteHistoryModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md rounded-2xl bg-card p-6 shadow-2xl ring-1 ring-line animate-in fade-in zoom-in-95">
+            <div className="flex items-start gap-3.5">
+              <div className="grid size-11 shrink-0 place-items-center rounded-xl bg-rose-50 text-rose-600 ring-1 ring-rose-200">
+                <Trash2 className="size-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-base font-bold text-ink">Seçilen Bildirimleri Sil</h3>
+                <p className="mt-1 text-xs text-muted leading-relaxed">
+                  Seçilen <span className="font-bold text-rose-600">{selectedHistoryIds.length}</span> adet bildirim kaydını geçmişten silmek istediğinize emin misiniz?
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 flex items-center justify-end gap-2.5">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowBulkDeleteHistoryModal(false)}
+              >
+                Vazgeç
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                className="bg-rose-600 hover:bg-rose-700 text-white font-bold"
+                onClick={handleConfirmBulkDeleteHistory}
+              >
+                <Trash2 className="size-3.5 mr-1.5" /> Evet, {selectedHistoryIds.length} Kaydı Sil
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tüm Bildirim Geçmişini Temizleme Modalı */}
+      {showClearAllHistoryModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md rounded-2xl bg-card p-6 shadow-2xl ring-1 ring-line animate-in fade-in zoom-in-95">
+            <div className="flex items-start gap-3.5">
+              <div className="grid size-11 shrink-0 place-items-center rounded-xl bg-rose-50 text-rose-600 ring-1 ring-rose-200">
+                <Trash2 className="size-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-base font-bold text-ink">Tüm Bildirim Geçmişini Temizle</h3>
+                <p className="mt-1 text-xs text-muted leading-relaxed">
+                  Gönderilmiş tüm duyuru ve bildirim geçmişi kalıcı olarak temizlenecektir. Bu işlem geri alınamaz.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 flex items-center justify-end gap-2.5">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowClearAllHistoryModal(false)}
+              >
+                Vazgeç
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                className="bg-rose-600 hover:bg-rose-700 text-white font-bold"
+                onClick={handleConfirmClearAllHistory}
+              >
+                <Trash2 className="size-3.5 mr-1.5" /> Evet, Tümünü Temizle
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </AdminShell>
   );
 }

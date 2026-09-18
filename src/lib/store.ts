@@ -33,6 +33,7 @@ interface AdminStore {
   requestRevision: (id: string, note: string) => Promise<void>;
   rejectListing: (id: string, reason: string) => Promise<void>;
   deleteListing: (id: string) => Promise<void>;
+  deleteMultipleListings: (ids: string[]) => Promise<void>;
   setReportStatus: (id: string, status: ReportStatus) => Promise<void>;
   resolveReport: (options: {
     reportId: string;
@@ -432,6 +433,21 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
       await supabase.from("listings").delete().eq("id", id);
     } catch (e) {
       console.error("deleteListing hatası:", e);
+    }
+  },
+
+  deleteMultipleListings: async (ids: string[]) => {
+    if (ids.length === 0) return;
+    const idSet = new Set(ids);
+    set((s) => ({
+      listings: s.listings.filter((l) => !idSet.has(l.id)),
+    }));
+    try {
+      await supabase.from("favorites").delete().in("listing_id", ids);
+      await supabase.from("listing_images").delete().in("listing_id", ids);
+      await supabase.from("listings").delete().in("id", ids);
+    } catch (e) {
+      console.error("deleteMultipleListings hatası:", e);
     }
   },
 
