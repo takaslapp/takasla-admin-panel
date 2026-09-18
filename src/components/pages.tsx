@@ -280,43 +280,88 @@ export function ListingsPage() {
   }, [fetchDashboardData]);
 
   // Sayılar
+  const uncompletedListings = useMemo(
+    () => listings.filter((l) => l.status !== "completed" && l.status !== "takaslandi"),
+    [listings]
+  );
   const pendingCount = useMemo(() => listings.filter((l) => l.status === "pending").length, [listings]);
   const approvedCount = useMemo(() => listings.filter((l) => l.status === "approved" || l.status === "yayinda").length, [listings]);
   const completedCount = useMemo(() => completedSwapPairs.length, [completedSwapPairs]);
   const revisionCount = useMemo(() => listings.filter((l) => l.status === "revision_requested").length, [listings]);
   const rejectedCount = useMemo(() => listings.filter((l) => l.status === "rejected").length, [listings]);
+  const totalDisplayCount = uncompletedListings.length + completedSwapPairs.length;
 
-  const filtered = useMemo(() => {
-    return listings.filter((l) => {
-      let matchTab = true;
-      if (activeTab === "pending") matchTab = l.status === "pending";
-      else if (activeTab === "approved") matchTab = l.status === "approved" || l.status === "yayinda";
-      else if (activeTab === "completed") matchTab = l.status === "completed" || l.status === "takaslandi";
-      else if (activeTab === "revision_requested") matchTab = l.status === "revision_requested";
-      else if (activeTab === "rejected") matchTab = l.status === "rejected";
+  // Takaslananları birleşik gruplayan gösterim listesi (Display Items)
+  type DisplayItem =
+    | { kind: "single"; listing: Listing }
+    | { kind: "pair"; pair: CompletedSwapPair };
 
-      const matchSearch =
-        `${l.title} ${l.ownerName} ${l.ownerPhone} ${l.category} ${l.city} ${l.wants} ${l.description}`
-          .toLowerCase()
-          .includes(q.toLowerCase());
+  const displayItems = useMemo<DisplayItem[]>(() => {
+    const lowerQ = q.trim().toLowerCase();
 
-      return matchTab && matchSearch;
-    });
-  }, [listings, activeTab, q]);
+    const matchSingleSearch = (l: Listing) => {
+      if (!lowerQ) return true;
+      return `${l.title} ${l.ownerName} ${l.ownerPhone} ${l.category} ${l.city} ${l.wants} ${l.description}`
+        .toLowerCase()
+        .includes(lowerQ);
+    };
 
-  const filteredCompletedPairs = useMemo(() => {
-    if (!q.trim()) return completedSwapPairs;
-    const lower = q.toLowerCase();
-    return completedSwapPairs.filter((p) => {
-      const searchStr = `${p.itemA.title} ${p.itemA.ownerName} ${p.itemA.ownerPhone} ${p.itemA.city} ${p.itemA.category} ${p.itemB.title} ${p.itemB.ownerName} ${p.itemB.ownerPhone} ${p.itemB.city} ${p.itemB.category}`.toLowerCase();
-      return searchStr.includes(lower);
-    });
-  }, [completedSwapPairs, q]);
+    const matchPairSearch = (p: CompletedSwapPair) => {
+      if (!lowerQ) return true;
+      const str = `${p.itemA.title} ${p.itemA.ownerName} ${p.itemA.ownerPhone} ${p.itemA.city} ${p.itemA.category} ${p.itemB.title} ${p.itemB.ownerName} ${p.itemB.ownerPhone} ${p.itemB.city} ${p.itemB.category}`.toLowerCase();
+      return str.includes(lowerQ);
+    };
 
-  // Toplu Seçim Hesaplamaları (Tamamlanmış takaslar seçilemez ve silinemez)
+    if (activeTab === "pending") {
+      return listings
+        .filter((l) => l.status === "pending" && matchSingleSearch(l))
+        .map((listing) => ({ kind: "single" as const, listing }));
+    }
+
+    if (activeTab === "approved") {
+      return listings
+        .filter((l) => (l.status === "approved" || l.status === "yayinda") && matchSingleSearch(l))
+        .map((listing) => ({ kind: "single" as const, listing }));
+    }
+
+    if (activeTab === "revision_requested") {
+      return listings
+        .filter((l) => l.status === "revision_requested" && matchSingleSearch(l))
+        .map((listing) => ({ kind: "single" as const, listing }));
+    }
+
+    if (activeTab === "rejected") {
+      return listings
+        .filter((l) => l.status === "rejected" && matchSingleSearch(l))
+        .map((listing) => ({ kind: "single" as const, listing }));
+    }
+
+    if (activeTab === "completed") {
+      return completedSwapPairs
+        .filter(matchPairSearch)
+        .map((pair) => ({ kind: "pair" as const, pair }));
+    }
+
+    // activeTab === "all" (TÜMÜ):
+    // Takaslanmamışlar tekil, takaslananlar BİRLEŞİK ÇİFTLER olarak listelenir!
+    const singles: DisplayItem[] = uncompletedListings
+      .filter(matchSingleSearch)
+      .map((listing) => ({ kind: "single" as const, listing }));
+
+    const pairs: DisplayItem[] = completedSwapPairs
+      .filter(matchPairSearch)
+      .map((pair) => ({ kind: "pair" as const, pair }));
+
+    return [...singles, ...pairs];
+  }, [listings, completedSwapPairs, uncompletedListings, activeTab, q]);
+
+  // Toplu Seçim Hesaplamaları (Sadece tekil aktif ilanlar seçilebilir)
   const selectableFiltered = useMemo(
-    () => filtered.filter((l) => l.status !== "completed" && l.status !== "takaslandi"),
-    [filtered]
+    () =>
+      displayItems
+        .filter((item): item is { kind: "single"; listing: Listing } => item.kind === "single")
+        .map((item) => item.listing),
+    [displayItems]
   );
   const isAllFilteredSelected = selectableFiltered.length > 0 && selectableFiltered.every((l) => selectedIds.includes(l.id));
   const isSomeFilteredSelected = selectableFiltered.some((l) => selectedIds.includes(l.id)) && !isAllFilteredSelected;
@@ -466,7 +511,7 @@ export function ListingsPage() {
               size="sm"
               onClick={() => setActiveTab("all")}
             >
-              Tümü ({listings.length})
+              Tümü ({totalDisplayCount})
             </Button>
             <Button
               variant={activeTab === "pending" ? "dark" : "outline"}
@@ -554,14 +599,10 @@ export function ListingsPage() {
 
         <Panel
           title={activeTab === "completed" ? "Birleşik Takas Listesi" : "İlan Listesi"}
-          subtitle={
-            activeTab === "completed"
-              ? `${filteredCompletedPairs.length} tamamlanan takas listeleniyor (birleşik eşleşmeler)`
-              : `${filtered.length} ilan listeleniyor${selectedIds.length > 0 ? ` · ${selectedIds.length} seçildi` : ""}`
-          }
+          subtitle={`${displayItems.length} ${activeTab === "completed" ? "tamamlanan birleşik takas" : "kayıt"} listeleniyor${selectedIds.length > 0 ? ` · ${selectedIds.length} seçildi` : ""}`}
           action={
             <div className="flex items-center gap-2">
-              {activeTab !== "completed" && filtered.length > 0 && (
+              {selectableFiltered.length > 0 && (
                 <Button
                   size="sm"
                   variant={isAllFilteredSelected ? "dark" : "outline"}
@@ -584,200 +625,141 @@ export function ListingsPage() {
             }
           />
 
-          {/* Takaslananlar Sekmesinde: BİRLEŞİK TAKAS KARTLARI */}
-          {activeTab === "completed" ? (
-            <div className="space-y-4">
-              {filteredCompletedPairs.length === 0 ? (
-                <div className="py-12 text-center rounded-2xl border border-dashed border-line bg-shell/20">
-                  <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-shell text-muted mb-3">
-                    <ArrowLeftRight className="size-6" />
-                  </div>
-                  <p className="font-semibold text-ink text-sm">Tamamlanan takas bulunamadı</p>
-                  <p className="text-xs text-muted mt-1">
-                    Kullanıcılar her iki tarafın onayıyla takas gerçekleştirdiğinde burada birleşik çiftler halinde listelenir.
-                  </p>
-                </div>
-              ) : (
-                filteredCompletedPairs.map((pair) => {
-                  const hasPhotoA = pair.itemA.images && pair.itemA.images.length > 0;
-                  const photoA = hasPhotoA ? pair.itemA.images[0] : null;
-                  const hasPhotoB = pair.itemB.images && pair.itemB.images.length > 0;
-                  const photoB = hasPhotoB ? pair.itemB.images[0] : null;
+          {/* 1. MOBİL LİSTE (Ekran < lg) */}
+          <div className="space-y-3.5 lg:hidden">
+            {displayItems.length === 0 ? (
+              <p className="py-8 text-center text-muted text-sm">Bu filtreleme kriterine uygun kayıt bulunamadı.</p>
+            ) : (
+              displayItems.map((item) => {
+                if (item.kind === "pair") {
+                  const { pair } = item;
+                  const photoA = pair.itemA.images?.[0];
+                  const photoB = pair.itemB.images?.[0];
 
                   return (
                     <div
                       key={pair.id}
-                      className="rounded-2xl border border-emerald-300/80 bg-gradient-to-b from-emerald-50/40 to-white p-4 sm:p-5 shadow-sm space-y-4 transition-all hover:shadow-md"
+                      className="rounded-2xl border border-emerald-300/80 bg-gradient-to-b from-emerald-50/50 to-white p-4 shadow-sm space-y-3"
                     >
-                      {/* Üst Bar: Başlık, Durum ve Tarih */}
-                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-emerald-100 pb-3">
-                        <div className="flex items-center gap-2.5">
-                          <span className="flex size-8 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm font-bold">
-                            <ArrowLeftRight className="size-4" />
+                      <div className="flex items-center justify-between border-b border-emerald-100 pb-2.5">
+                        <div className="flex items-center gap-2">
+                          <span className="flex size-7 items-center justify-center rounded-lg bg-emerald-600 text-white shadow-xs">
+                            <ArrowLeftRight className="size-3.5" />
                           </span>
                           <div>
-                            <h4 className="font-bold text-sm text-emerald-950 flex items-center gap-2">
-                              Birleşik Takas İşlemi
-                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-800">
-                                <Check className="size-3" /> Başarılı
-                              </span>
-                            </h4>
-                            <p className="text-xs text-emerald-800/80">
-                              İki kullanıcının karşılıklı onayı ile tamamlanan takas
+                            <h4 className="font-bold text-xs text-emerald-950">Birleşik Takas İşlemi</h4>
+                            <p className="text-[10px] text-muted flex items-center gap-1 mt-0.5">
+                              <Clock className="size-2.5" /> {pair.date}
                             </p>
                           </div>
                         </div>
-
-                        <div className="flex items-center gap-2 text-xs text-muted">
-                          <Clock className="size-3.5" />
-                          <span>{pair.date}</span>
-                        </div>
+                        <StatusChip tone="ok">Takas Tamamlandı</StatusChip>
                       </div>
 
-                      {/* İki Ürünün Yan Yana / Alt Alta Görünümü */}
-                      <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr] items-center gap-4">
-                        {/* 1. Ürün & Sahibi */}
-                        <div className="rounded-xl border border-line/80 bg-white p-3.5 shadow-sm space-y-2.5">
-                          <div className="flex items-start gap-3">
+                      <div className="space-y-2">
+                        {/* 1. Ürün */}
+                        <div className="flex items-center justify-between p-2.5 rounded-xl bg-white border border-line/70">
+                          <div className="flex items-center gap-2.5 min-w-0">
                             <div
                               onClick={() => {
                                 setPreviewListing(pair.itemA);
                                 setSelectedPhotoIndex(0);
                               }}
-                              className="relative size-16 shrink-0 cursor-pointer overflow-hidden rounded-xl border border-line bg-shell/50 hover:opacity-90"
+                              className="size-12 shrink-0 rounded-lg overflow-hidden border border-line bg-shell/50 cursor-pointer"
                             >
                               {photoA ? (
-                                <img
-                                  src={photoA}
-                                  alt={pair.itemA.title}
-                                  className="size-full object-cover"
-                                  onError={(e) => {
-                                    (e.target as HTMLElement).style.display = "none";
-                                  }}
-                                />
+                                <img src={photoA} alt={pair.itemA.title} className="size-full object-cover" />
                               ) : (
-                                <div className="grid size-full place-items-center text-muted">
-                                  <Package className="size-5 opacity-40" />
-                                </div>
+                                <div className="grid size-full place-items-center text-muted"><Package className="size-4 opacity-40" /></div>
                               )}
                             </div>
-                            <div className="min-w-0 flex-1">
-                              <span className="inline-block rounded bg-emerald-100/70 text-emerald-900 text-[10px] font-bold px-1.5 py-0.5 mb-1">
-                                1. TAKAS ÜRÜNÜ
+                            <div className="min-w-0">
+                              <span className="inline-block rounded bg-emerald-100 text-emerald-800 text-[9px] font-bold px-1 py-0.2 mb-0.5">
+                                1. ÜRÜN
                               </span>
-                              <h5
+                              <p
                                 onClick={() => {
                                   setPreviewListing(pair.itemA);
                                   setSelectedPhotoIndex(0);
                                 }}
-                                className="font-bold text-sm text-ink line-clamp-1 cursor-pointer hover:text-forest"
+                                className="font-bold text-xs text-ink truncate cursor-pointer hover:text-forest"
                               >
                                 {pair.itemA.title}
-                              </h5>
-                              <p className="text-xs text-muted flex items-center gap-1 mt-0.5">
-                                <MapPin className="size-3 shrink-0" /> {pair.itemA.city} · {pair.itemA.category}
                               </p>
+                              <p className="text-[11px] text-muted truncate">{pair.itemA.ownerName} ({pair.itemA.city})</p>
                             </div>
                           </div>
-                          <div className="pt-2 border-t border-line/50 flex items-center justify-between text-xs">
-                            <span className="text-muted">
-                              Sahip: <strong className="text-ink font-semibold">{pair.itemA.ownerName}</strong> ({pair.itemA.ownerPhone})
-                            </span>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-7 text-[11px] px-2 text-forest border-forest/30 bg-forest/5"
-                              onClick={() => {
-                                setPreviewListing(pair.itemA);
-                                setSelectedPhotoIndex(0);
-                              }}
-                            >
-                              <Eye className="size-3 mr-1" /> İncele
-                            </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 text-xs px-2 text-forest shrink-0"
+                            onClick={() => {
+                              setPreviewListing(pair.itemA);
+                              setSelectedPhotoIndex(0);
+                            }}
+                          >
+                            <Eye className="size-3 mr-1" /> İncele
+                          </Button>
+                        </div>
+
+                        {/* Ortadaki Takas İkonu */}
+                        <div className="flex justify-center -my-1">
+                          <div className="size-6 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-xs">
+                            <ArrowLeftRight className="size-3" />
                           </div>
                         </div>
 
-                        {/* Ortadaki Takas İkonu (Desktop) / Çizgi (Mobile) */}
-                        <div className="flex items-center justify-center py-1 lg:py-0">
-                          <div className="flex size-10 items-center justify-center rounded-full bg-emerald-600 text-white shadow-md border-2 border-white">
-                            <ArrowLeftRight className="size-5" />
-                          </div>
-                        </div>
-
-                        {/* 2. Ürün & Sahibi */}
-                        <div className="rounded-xl border border-line/80 bg-white p-3.5 shadow-sm space-y-2.5">
-                          <div className="flex items-start gap-3">
+                        {/* 2. Ürün */}
+                        <div className="flex items-center justify-between p-2.5 rounded-xl bg-white border border-line/70">
+                          <div className="flex items-center gap-2.5 min-w-0">
                             <div
                               onClick={() => {
                                 setPreviewListing(pair.itemB);
                                 setSelectedPhotoIndex(0);
                               }}
-                              className="relative size-16 shrink-0 cursor-pointer overflow-hidden rounded-xl border border-line bg-shell/50 hover:opacity-90"
+                              className="size-12 shrink-0 rounded-lg overflow-hidden border border-line bg-shell/50 cursor-pointer"
                             >
                               {photoB ? (
-                                <img
-                                  src={photoB}
-                                  alt={pair.itemB.title}
-                                  className="size-full object-cover"
-                                  onError={(e) => {
-                                    (e.target as HTMLElement).style.display = "none";
-                                  }}
-                                />
+                                <img src={photoB} alt={pair.itemB.title} className="size-full object-cover" />
                               ) : (
-                                <div className="grid size-full place-items-center text-muted">
-                                  <Package className="size-5 opacity-40" />
-                                </div>
+                                <div className="grid size-full place-items-center text-muted"><Package className="size-4 opacity-40" /></div>
                               )}
                             </div>
-                            <div className="min-w-0 flex-1">
-                              <span className="inline-block rounded bg-emerald-100/70 text-emerald-900 text-[10px] font-bold px-1.5 py-0.5 mb-1">
-                                2. TAKAS ÜRÜNÜ
+                            <div className="min-w-0">
+                              <span className="inline-block rounded bg-emerald-100 text-emerald-800 text-[9px] font-bold px-1 py-0.2 mb-0.5">
+                                2. ÜRÜN
                               </span>
-                              <h5
+                              <p
                                 onClick={() => {
                                   setPreviewListing(pair.itemB);
                                   setSelectedPhotoIndex(0);
                                 }}
-                                className="font-bold text-sm text-ink line-clamp-1 cursor-pointer hover:text-forest"
+                                className="font-bold text-xs text-ink truncate cursor-pointer hover:text-forest"
                               >
                                 {pair.itemB.title}
-                              </h5>
-                              <p className="text-xs text-muted flex items-center gap-1 mt-0.5">
-                                <MapPin className="size-3 shrink-0" /> {pair.itemB.city} · {pair.itemB.category}
                               </p>
+                              <p className="text-[11px] text-muted truncate">{pair.itemB.ownerName} ({pair.itemB.city})</p>
                             </div>
                           </div>
-                          <div className="pt-2 border-t border-line/50 flex items-center justify-between text-xs">
-                            <span className="text-muted">
-                              Sahip: <strong className="text-ink font-semibold">{pair.itemB.ownerName}</strong> ({pair.itemB.ownerPhone})
-                            </span>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-7 text-[11px] px-2 text-forest border-forest/30 bg-forest/5"
-                              onClick={() => {
-                                setPreviewListing(pair.itemB);
-                                setSelectedPhotoIndex(0);
-                              }}
-                            >
-                              <Eye className="size-3 mr-1" /> İncele
-                            </Button>
-                          </div>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 text-xs px-2 text-forest shrink-0"
+                            onClick={() => {
+                              setPreviewListing(pair.itemB);
+                              setSelectedPhotoIndex(0);
+                            }}
+                          >
+                            <Eye className="size-3 mr-1" /> İncele
+                          </Button>
                         </div>
                       </div>
                     </div>
                   );
-                })
-              )}
-            </div>
-          ) : (
-            <>
-              {/* Mobil İlan Kartları */}
-          <div className="space-y-3.5 lg:hidden">
-            {filtered.length === 0 ? (
-              <p className="py-8 text-center text-muted text-sm">Bu filtreleme kriterine uygun ilan bulunamadı.</p>
-            ) : (
-              filtered.map((l) => {
+                }
+
+                // Tekil İlan Kartı (Single)
+                const l = item.listing;
                 const isSelected = selectedIds.includes(l.id);
                 const hasPhotos = l.images && l.images.length > 0;
                 const mainPhoto = hasPhotos ? l.images[0] : null;
@@ -792,15 +774,13 @@ export function ListingsPage() {
                     }`}
                   >
                     <div className="flex items-start gap-3">
-                      {/* Checkbox & Görsel */}
                       <div className="flex items-center gap-2.5 shrink-0">
                         <input
                           type="checkbox"
                           checked={isSelected}
-                          disabled={l.status === "completed" || l.status === "takaslandi"}
                           onChange={() => handleToggleSelect(l.id)}
-                          className="size-4.5 rounded border-line text-rose-600 focus:ring-rose-500 cursor-pointer accent-rose-600 disabled:opacity-30 disabled:cursor-not-allowed"
-                          title={l.status === "completed" || l.status === "takaslandi" ? "Tamamlanmış takaslar silinemez" : "Seç / Seçimi Kaldır"}
+                          className="size-4.5 rounded border-line text-rose-600 focus:ring-rose-500 cursor-pointer accent-rose-600"
+                          title="Seç / Seçimi Kaldır"
                         />
                         <div
                           onClick={() => {
@@ -868,9 +848,7 @@ export function ListingsPage() {
 
                     <div className="flex items-center justify-between pt-1">
                       <span className="text-xs font-medium text-muted">Durum:</span>
-                      {l.status === "completed" || l.status === "takaslandi" ? (
-                        <StatusChip tone="ok">Takas Tamamlandı</StatusChip>
-                      ) : l.status === "pending" ? (
+                      {l.status === "pending" ? (
                         <StatusChip tone="warn">Onay Bekliyor</StatusChip>
                       ) : l.status === "revision_requested" ? (
                         <StatusChip tone="warn">Revize İstendi</StatusChip>
@@ -894,45 +872,38 @@ export function ListingsPage() {
                         <Eye className="size-3 mr-1" /> İncele
                       </Button>
 
-                      {l.status !== "completed" && l.status !== "takaslandi" && (
-                        <>
-                          <Button
-                            size="sm"
-                            className="bg-forest hover:bg-forest/90 text-white text-xs h-8 px-2.5 font-semibold"
-                            onClick={() => handleApprove(l.id, l.title)}
-                          >
-                            <Check className="size-3 mr-1" /> Onayla
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-amber-800 bg-amber-50 hover:bg-amber-100 border-amber-300 text-xs h-8 px-2 font-semibold"
-                            onClick={() => handleOpenRevision(l)}
-                          >
-                            <Edit3 className="size-3 mr-1" /> Revize
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-rose-700 bg-rose-50 hover:bg-rose-100 border-rose-300 text-xs h-8 px-2 font-semibold"
-                            onClick={() => handleOpenReject(l)}
-                          >
-                            <XCircle className="size-3 mr-1" /> Reddet
-                          </Button>
-                        </>
-                      )}
-
-                      {l.status !== "completed" && l.status !== "takaslandi" && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 h-8 px-2 text-xs"
-                          onClick={() => handleOpenDelete(l.id, l.title)}
-                          title="İlanı Sil"
-                        >
-                          <Trash2 className="size-3.5" />
-                        </Button>
-                      )}
+                      <Button
+                        size="sm"
+                        className="bg-forest hover:bg-forest/90 text-white text-xs h-8 px-2.5 font-semibold"
+                        onClick={() => handleApprove(l.id, l.title)}
+                      >
+                        <Check className="size-3 mr-1" /> Onayla
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-amber-800 bg-amber-50 hover:bg-amber-100 border-amber-300 text-xs h-8 px-2 font-semibold"
+                        onClick={() => handleOpenRevision(l)}
+                      >
+                        <Edit3 className="size-3 mr-1" /> Revize
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-rose-700 bg-rose-50 hover:bg-rose-100 border-rose-300 text-xs h-8 px-2 font-semibold"
+                        onClick={() => handleOpenReject(l)}
+                      >
+                        <XCircle className="size-3 mr-1" /> Reddet
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 h-8 px-2 text-xs"
+                        onClick={() => handleOpenDelete(l.id, l.title)}
+                        title="İlanı Sil"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </Button>
                     </div>
                   </div>
                 );
@@ -940,7 +911,7 @@ export function ListingsPage() {
             )}
           </div>
 
-          {/* Masaüstü İlan Tablosu */}
+          {/* 2. MASAÜSTÜ TABLO (Ekran >= lg) */}
           <div className="hidden lg:block overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
@@ -966,14 +937,183 @@ export function ListingsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-line/60">
-                {filtered.length === 0 ? (
+                {displayItems.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="py-12 text-center text-muted">
-                      Bu filtreleme kriterine uygun ilan bulunamadı.
+                      Bu filtreleme kriterine uygun kayıt bulunamadı.
                     </td>
                   </tr>
                 ) : (
-                  filtered.map((l) => {
+                  displayItems.map((item) => {
+                    // BİRLEŞİK TAKAS SATIRI (Pair)
+                    if (item.kind === "pair") {
+                      const { pair } = item;
+                      const photoA = pair.itemA.images?.[0];
+                      const photoB = pair.itemB.images?.[0];
+
+                      return (
+                        <tr
+                          key={pair.id}
+                          className="bg-emerald-50/40 hover:bg-emerald-50/70 transition-colors border-b border-emerald-200/80 group"
+                        >
+                          {/* 0. Checkbox (Disabled) */}
+                          <td className="py-3.5 pr-2 text-center">
+                            <input
+                              type="checkbox"
+                              disabled
+                              checked={false}
+                              className="size-4 rounded border-line opacity-30 cursor-not-allowed"
+                              title="Tamamlanmış takaslar silinemez"
+                            />
+                          </td>
+
+                          {/* 1. Ürün / İlan (İlan A ⇄ İlan B) */}
+                          <td className="py-3.5 max-w-[360px]">
+                            <div className="flex items-center gap-2">
+                              {/* Ürün A */}
+                              <div
+                                onClick={() => {
+                                  setPreviewListing(pair.itemA);
+                                  setSelectedPhotoIndex(0);
+                                }}
+                                className="flex items-center gap-2 cursor-pointer group/a min-w-0"
+                                title={`1. Ürün: ${pair.itemA.title}`}
+                              >
+                                <div className="relative size-12 shrink-0 overflow-hidden rounded-xl border border-emerald-300 bg-white shadow-xs group-hover/a:scale-105 transition-transform">
+                                  {photoA ? (
+                                    <img src={photoA} alt={pair.itemA.title} className="size-full object-cover" />
+                                  ) : (
+                                    <div className="grid size-full place-items-center text-muted">
+                                      <Package className="size-4 opacity-40" />
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="min-w-0">
+                                  <span className="inline-block rounded bg-emerald-100 text-emerald-800 text-[9px] font-bold px-1 py-0.2 mb-0.5">
+                                    1. ÜRÜN
+                                  </span>
+                                  <p className="font-bold text-xs text-ink truncate group-hover/a:text-forest max-w-[105px]">
+                                    {pair.itemA.title}
+                                  </p>
+                                  <p className="text-[10px] text-muted truncate max-w-[105px]">
+                                    {pair.itemA.city}
+                                  </p>
+                                </div>
+                              </div>
+
+                              {/* Ortadaki Takas İkonu */}
+                              <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white shadow-xs">
+                                <ArrowLeftRight className="size-3.5" />
+                              </div>
+
+                              {/* Ürün B */}
+                              <div
+                                onClick={() => {
+                                  setPreviewListing(pair.itemB);
+                                  setSelectedPhotoIndex(0);
+                                }}
+                                className="flex items-center gap-2 cursor-pointer group/b min-w-0"
+                                title={`2. Ürün: ${pair.itemB.title}`}
+                              >
+                                <div className="relative size-12 shrink-0 overflow-hidden rounded-xl border border-emerald-300 bg-white shadow-xs group-hover/b:scale-105 transition-transform">
+                                  {photoB ? (
+                                    <img src={photoB} alt={pair.itemB.title} className="size-full object-cover" />
+                                  ) : (
+                                    <div className="grid size-full place-items-center text-muted">
+                                      <Package className="size-4 opacity-40" />
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="min-w-0">
+                                  <span className="inline-block rounded bg-emerald-100 text-emerald-800 text-[9px] font-bold px-1 py-0.2 mb-0.5">
+                                    2. ÜRÜN
+                                  </span>
+                                  <p className="font-bold text-xs text-ink truncate group-hover/b:text-forest max-w-[105px]">
+                                    {pair.itemB.title}
+                                  </p>
+                                  <p className="text-[10px] text-muted truncate max-w-[105px]">
+                                    {pair.itemB.city}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* 2. İlan Sahibi (Sahip A ⇄ Sahip B) */}
+                          <td className="py-3.5">
+                            <div className="text-xs space-y-0.5">
+                              <div className="flex items-center gap-1 font-semibold text-ink">
+                                <span>{pair.itemA.ownerName}</span>
+                                <ArrowLeftRight className="size-2.5 text-emerald-600 shrink-0" />
+                                <span>{pair.itemB.ownerName}</span>
+                              </div>
+                              <p className="text-[11px] text-muted">
+                                {pair.itemA.ownerPhone} · {pair.itemB.ownerPhone}
+                              </p>
+                            </div>
+                          </td>
+
+                          {/* 3. Kategori & Durum */}
+                          <td className="py-3.5">
+                            <span className="inline-flex rounded-full bg-emerald-100 text-emerald-900 px-2.5 py-0.5 text-xs font-semibold">
+                              {pair.itemA.category}
+                            </span>
+                            <p className="text-[11px] text-emerald-800/80 mt-0.5 font-medium">Karşılıklı Takas</p>
+                          </td>
+
+                          {/* 4. İstenen Takas (Takas Yapıldı) */}
+                          <td className="py-3.5 max-w-[200px]">
+                            <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-900 bg-emerald-100/70 rounded-lg px-2 py-1.5 border border-emerald-300/60">
+                              <Check className="size-3.5 text-emerald-700 shrink-0" />
+                              <span className="truncate">Başarıyla Takaslandı</span>
+                            </div>
+                          </td>
+
+                          {/* 5. Moderasyon Durumu */}
+                          <td className="py-3.5">
+                            <div>
+                              <StatusChip tone="ok">Takas Tamamlandı</StatusChip>
+                              <span className="block text-[11px] text-emerald-800 mt-0.5 font-medium flex items-center gap-1">
+                                <Clock className="size-3" /> {pair.date}
+                              </span>
+                            </div>
+                          </td>
+
+                          {/* 6. Aksiyonlar */}
+                          <td className="py-3.5 text-right pr-2">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 text-xs font-semibold text-forest border-forest/30 bg-white hover:bg-forest/10 px-2"
+                                onClick={() => {
+                                  setPreviewListing(pair.itemA);
+                                  setSelectedPhotoIndex(0);
+                                }}
+                                title={`1. Ürünü İncele: ${pair.itemA.title}`}
+                              >
+                                <Eye className="size-3 mr-1" /> 1. Ürün
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 text-xs font-semibold text-forest border-forest/30 bg-white hover:bg-forest/10 px-2"
+                                onClick={() => {
+                                  setPreviewListing(pair.itemB);
+                                  setSelectedPhotoIndex(0);
+                                }}
+                                title={`2. Ürünü İncele: ${pair.itemB.title}`}
+                              >
+                                <Eye className="size-3 mr-1" /> 2. Ürün
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    }
+
+                    // TEKİL İLAN SATIRI (Single)
+                    const l = item.listing;
                     const isSelected = selectedIds.includes(l.id);
                     const hasPhotos = l.images && l.images.length > 0;
                     const mainPhoto = hasPhotos ? l.images[0] : null;
@@ -992,10 +1132,9 @@ export function ListingsPage() {
                           <input
                             type="checkbox"
                             checked={isSelected}
-                            disabled={l.status === "completed" || l.status === "takaslandi"}
                             onChange={() => handleToggleSelect(l.id)}
-                            className="size-4 rounded border-line text-rose-600 focus:ring-rose-500 cursor-pointer accent-rose-600 disabled:opacity-30 disabled:cursor-not-allowed"
-                            title={l.status === "completed" || l.status === "takaslandi" ? "Tamamlanmış takaslar silinemez" : "İlanı Seç"}
+                            className="size-4 rounded border-line text-rose-600 focus:ring-rose-500 cursor-pointer accent-rose-600"
+                            title="İlanı Seç"
                           />
                         </td>
 
@@ -1036,21 +1175,25 @@ export function ListingsPage() {
                                   setPreviewListing(l);
                                   setSelectedPhotoIndex(0);
                                 }}
-                                className="font-semibold text-ink line-clamp-1 cursor-pointer hover:text-forest hover:underline"
+                                className="font-bold text-ink hover:text-forest cursor-pointer transition-colors truncate text-sm"
                               >
                                 {l.title}
                               </p>
-                              <p className="text-xs text-muted flex items-center gap-1 mt-0.5">
-                                <MapPin className="size-3" /> {l.city} · <Clock className="size-3" /> {l.created}
-                              </p>
+                              <div className="flex items-center gap-1 text-xs text-muted mt-0.5">
+                                <MapPin className="size-3 text-muted/80 shrink-0" />
+                                <span>{l.city}</span>
+                                <span className="opacity-40">·</span>
+                                <Clock className="size-3 text-muted/80 shrink-0" />
+                                <span>{l.created}</span>
+                              </div>
                             </div>
                           </div>
                         </td>
 
                         {/* 2. İlan Sahibi */}
                         <td className="py-3.5">
-                          <p className="font-medium text-ink/90">{l.ownerName}</p>
-                          <p className="text-xs text-muted font-mono">{l.ownerPhone}</p>
+                          <p className="font-semibold text-ink text-sm">{l.ownerName}</p>
+                          <p className="text-xs text-muted">{l.ownerPhone}</p>
                         </td>
 
                         {/* 3. Kategori & Durum */}
@@ -1071,12 +1214,7 @@ export function ListingsPage() {
 
                         {/* 5. Moderasyon Durumu */}
                         <td className="py-3.5">
-                          {l.status === "completed" || l.status === "takaslandi" ? (
-                            <div>
-                              <StatusChip tone="ok">Takas Tamamlandı</StatusChip>
-                              <span className="block text-[11px] text-emerald-800 mt-0.5 font-medium">Tarihsel Kayıt</span>
-                            </div>
-                          ) : l.status === "pending" ? (
+                          {l.status === "pending" ? (
                             <div>
                               <StatusChip tone="warn">Onay Bekliyor</StatusChip>
                               <span className="block text-[11px] text-amber-700 mt-0.5 font-medium">İnceleme Gerekli</span>
@@ -1084,45 +1222,38 @@ export function ListingsPage() {
                           ) : l.status === "revision_requested" ? (
                             <div>
                               <StatusChip tone="warn">Revize İstendi</StatusChip>
-                              {l.adminNote && (
-                                <p className="text-[10.5px] text-amber-900 line-clamp-1 mt-0.5 italic" title={l.adminNote}>
-                                  &ldquo;{l.adminNote}&rdquo;
-                                </p>
-                              )}
+                              <span className="block text-[11px] text-amber-800 mt-0.5 font-medium">Düzeltme Bekleniyor</span>
                             </div>
                           ) : l.status === "approved" || l.status === "yayinda" ? (
-                            <StatusChip tone="ok">Yayında</StatusChip>
+                            <div>
+                              <StatusChip tone="ok">Yayında</StatusChip>
+                              <span className="block text-[11px] text-emerald-800 mt-0.5 font-medium">Aktif İlan</span>
+                            </div>
                           ) : (
                             <div>
                               <StatusChip tone="bad">Reddedildi</StatusChip>
-                              {l.adminNote && (
-                                <p className="text-[10.5px] text-rose-800 line-clamp-1 mt-0.5 italic" title={l.adminNote}>
-                                  &ldquo;{l.adminNote}&rdquo;
-                                </p>
-                              )}
+                              <span className="block text-[11px] text-rose-800 mt-0.5 font-medium">Yayınlanmıyor</span>
                             </div>
                           )}
                         </td>
 
-                        {/* 6. İşlemler */}
+                        {/* 6. Aksiyonlar */}
                         <td className="py-3.5 text-right pr-2">
                           <div className="flex items-center justify-end gap-1.5">
-                            {/* İncele Butonu */}
                             <Button
                               size="sm"
-                              variant="ghost"
-                              className="text-ink/70 hover:text-ink"
+                              variant="outline"
+                              className="text-forest border-forest/30 bg-forest/5 hover:bg-forest/10"
                               onClick={() => {
                                 setPreviewListing(l);
                                 setSelectedPhotoIndex(0);
                               }}
-                              title="Tüm Detayları ve Fotoğrafları İncele"
+                              title="İlanı İncele"
                             >
                               <Eye className="size-4" />
                             </Button>
 
-                            {/* DURUMA GÖRE AKSİYONLAR */}
-                            {l.status === "completed" || l.status === "takaslandi" ? null : l.status === "pending" ? (
+                            {l.status === "pending" ? (
                               <>
                                 <Button
                                   size="sm"
@@ -1152,16 +1283,6 @@ export function ListingsPage() {
                                   <XCircle className="size-3.5 mr-1" /> Reddet
                                 </Button>
                               </>
-                            ) : l.status === "approved" || l.status === "yayinda" ? (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="text-amber-800 hover:bg-amber-50 border-amber-300"
-                                onClick={() => handleOpenRevision(l)}
-                                title="Düzenleme İsteği Gönder"
-                              >
-                                <Edit3 className="size-3.5 mr-1" /> Düzenleme İste
-                              </Button>
                             ) : l.status === "revision_requested" ? (
                               <>
                                 <Button
@@ -1196,26 +1317,23 @@ export function ListingsPage() {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                className="text-emerald-700 hover:bg-emerald-50 border-emerald-300"
-                                onClick={() => handleApprove(l.id, l.title)}
-                                title="Tekrar Yayına Al"
+                                className="text-rose-700 hover:bg-rose-50 border-rose-300"
+                                onClick={() => handleOpenReject(l)}
+                                title="İlanı Reddet / Yayından Kaldır"
                               >
-                                <RotateCcw className="size-3.5 mr-1" /> Yayına Al
+                                <XCircle className="size-3.5 mr-1" /> Reddet
                               </Button>
                             )}
 
-                            {/* Kalıcı Sil Butonu (Tamamlanmış takaslarda gösterilmez) */}
-                            {l.status !== "completed" && l.status !== "takaslandi" && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="text-muted hover:text-rose-600"
-                                onClick={() => handleOpenDelete(l.id, l.title)}
-                                title="İlanı Kalıcı Sil"
-                              >
-                                <Trash2 className="size-4" />
-                              </Button>
-                            )}
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-muted hover:text-rose-600"
+                              onClick={() => handleOpenDelete(l.id, l.title)}
+                              title="İlanı Kalıcı Sil"
+                            >
+                              <Trash2 className="size-4" />
+                            </Button>
                           </div>
                         </td>
                       </tr>
@@ -1225,8 +1343,6 @@ export function ListingsPage() {
               </tbody>
             </table>
           </div>
-            </>
-          )}
         </Panel>
       </div>
 
