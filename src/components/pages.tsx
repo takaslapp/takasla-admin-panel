@@ -116,7 +116,7 @@ export function UsersPage() {
                       alt={u.name}
                       className="size-10 shrink-0 rounded-full object-cover ring-1 ring-line"
                       onError={(e) => {
-                        (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name)}&background=255a47&color=ffffff`;
+                        (e.target as HTMLImageElement).src = "/images/takasla-icon.jpg";
                       }}
                     />
                     <div className="min-w-0">
@@ -187,7 +187,7 @@ export function UsersPage() {
                           alt={u.name}
                           className="size-10 rounded-full object-cover ring-1 ring-line"
                           onError={(e) => {
-                            (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name)}&background=255a47&color=ffffff`;
+                            (e.target as HTMLImageElement).src = "/images/takasla-icon.jpg";
                           }}
                         />
                         <div>

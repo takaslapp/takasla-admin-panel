@@ -99,10 +99,16 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
           const dt = p.created_at ? new Date(p.created_at) : new Date();
           const joinedFormatted = `${dt.toLocaleDateString("tr-TR")} ${dt.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}`;
 
-          const avatarUrl =
-            p.avatar_url && p.avatar_url.trim() !== ""
-              ? p.avatar_url
-              : `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=255a47&color=ffffff`;
+          const rawAvatar = p.avatar_url?.trim();
+          const hasCustomAvatar =
+            rawAvatar &&
+            rawAvatar !== "" &&
+            !rawAvatar.includes("unsplash.com") &&
+            !rawAvatar.includes("ui-avatars.com");
+
+          const avatarUrl = hasCustomAvatar
+            ? rawAvatar
+            : "/images/takasla-icon.jpg";
 
           return {
             id: p.id,

@@ -106,8 +106,8 @@ export function AdminShell({
   };
 
   return (
-    <div className="min-h-dvh bg-bg w-full max-w-full overflow-x-hidden p-0 sm:p-3">
-      <div className="mx-auto min-h-dvh sm:min-h-[calc(100dvh-1.5rem)] w-full max-w-[1440px] rounded-none sm:rounded-[2rem] bg-shell min-w-0 overflow-hidden shadow-2xl">
+    <div className="min-h-dvh bg-bg w-full max-w-full overflow-x-hidden p-0 sm:p-2.5 lg:p-3.5 xl:p-4">
+      <div className="min-h-dvh sm:min-h-[calc(100dvh-1.25rem)] w-full rounded-none sm:rounded-[1.75rem] bg-shell min-w-0 overflow-hidden shadow-2xl">
         {/* Banner Üst Kısım - mobilde tam genişlik, taşma yapmaz */}
         <div className="relative isolate rounded-b-[1.25rem] sm:rounded-b-[1.5rem] w-full min-w-0 overflow-hidden">
           <div className="absolute inset-0 overflow-hidden rounded-b-[1.25rem] sm:rounded-b-[1.5rem] pointer-events-none">
@@ -120,7 +120,7 @@ export function AdminShell({
           </div>
 
           {/* Üst Navbar */}
-          <div className="relative z-20 flex items-center justify-between gap-2 px-3 py-3 sm:px-6 sm:py-4 lg:px-8">
+          <div className="relative z-20 flex items-center justify-between gap-2 px-3 py-3 sm:px-6 sm:py-4 lg:px-8 xl:px-10">
             <Logo />
 
             <nav className="hidden items-center gap-1 rounded-full bg-card/18 p-1 backdrop-blur-md lg:flex">
