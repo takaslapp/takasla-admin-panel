@@ -5,6 +5,7 @@ import {
   ChevronRight,
   Menu,
   Package,
+  LogOut,
   RotateCw,
   ShieldAlert,
   User as UserIcon,
@@ -13,6 +14,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useAdminStore } from "@/lib/store";
+import { supabase } from "@/lib/supabase";
 
 const NAV = [
   { to: "/", label: "Genel bakış" },
@@ -97,6 +99,14 @@ export function AdminShell({
     [openReports, readReportIds]
   );
   const unreadCount = unreadReports.length;
+
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error("Çıkış hatası:", err);
+    }
+  };
 
   const handlePageReload = () => {
     setIsRefreshing(true);
@@ -187,7 +197,18 @@ export function AdminShell({
                 <RotateCw className={cn("size-4", isRefreshing && "animate-spin")} />
               </button>
 
-              {/* 3. MOBİL MENÜ (Sadece küçük ekranda görünür) */}
+              {/* 3. ÇIKIŞ YAP BUTONU */}
+              <button
+                type="button"
+                aria-label="Çıkış Yap"
+                onClick={handleLogout}
+                className="grid size-9 sm:size-11 place-items-center rounded-full bg-card/92 text-bad transition-all hover:bg-bad hover:text-white cursor-pointer"
+                title="Çıkış Yap"
+              >
+                <LogOut className="size-4" />
+              </button>
+
+              {/* 4. MOBİL MENÜ (Sadece küçük ekranda görünür) */}
               <button
                 type="button"
                 className="grid size-9 sm:size-11 place-items-center rounded-full bg-card/92 text-forest lg:hidden"
@@ -200,7 +221,7 @@ export function AdminShell({
                 {open ? <X className="size-4" /> : <Menu className="size-4" />}
               </button>
 
-              {/* 4. EN SAĞDA: TAKASLA AVATAR */}
+              {/* 5. EN SAĞDA: TAKASLA AVATAR */}
               <img
                 src="/images/takasla-icon.jpg"
                 alt="Takasla"
@@ -416,6 +437,21 @@ export function AdminShell({
                       </Link>
                     );
                   })}
+                                </div>
+                <div className="mt-2 pt-2 border-t border-line/60">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOpen(false);
+                      handleLogout();
+                    }}
+                    className="flex w-full items-center justify-between rounded-xl px-4 py-2.5 text-sm font-semibold text-bad hover:bg-bad-soft transition-colors cursor-pointer"
+                  >
+                    <span className="flex items-center gap-2">
+                      <LogOut className="size-4" />
+                      Çıkış Yap
+                    </span>
+                  </button>
                 </div>
               </div>
             </>
