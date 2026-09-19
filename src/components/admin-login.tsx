@@ -95,9 +95,8 @@ export function AdminLogin({ initialError, onSuccess }: AdminLoginProps) {
           alt="Takasla Arka Plan"
           className="h-full w-full object-cover object-center"
         />
-        {/* Karartma ve degrade katmanları - kartın okunurluğunu ve kontrastını korur */}
-        <div className="absolute inset-0 bg-bg/80 backdrop-blur-[2px]" />
-        <div className="absolute inset-0 bg-gradient-to-t from-bg via-bg/65 to-forest/40" />
+        {/* Zarif hafif karartma: Görselin canlılığı ve tüm detayları net şekilde görünür */}
+        <div className="absolute inset-0 bg-black/30" />
       </div>
 
       {/* Ana Giriş Kartı */}
