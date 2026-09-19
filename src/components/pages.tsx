@@ -37,7 +37,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { Listing, ListingStatus, Report, ReportStatus, SuggestionStatus, User } from "@/lib/data";
+import type { CompletedSwapPair, Listing, ListingStatus, Report, ReportStatus, SuggestionStatus, User } from "@/lib/data";
 import { useAdminStore } from "@/lib/store";
 import { AdminShell, Panel, StatusChip } from "./admin-shell";
 import { Button } from "./ui/button";
@@ -575,7 +575,7 @@ export function ListingsPage() {
                 className="bg-white hover:bg-rose-100/50 text-rose-900 border-rose-300 text-xs font-semibold"
                 onClick={handleToggleSelectAll}
               >
-                {isAllFilteredSelected ? "Filtrelenenlerin Seçimini Kaldır" : `Filtrelenen Tümünü Seç (${filtered.length})`}
+                {isAllFilteredSelected ? "Filtrelenenlerin Seçimini Kaldır" : `Filtrelenen Tümünü Seç (${selectableFiltered.length})`}
               </Button>
               <Button
                 size="sm"
