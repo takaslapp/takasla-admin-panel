@@ -88,14 +88,20 @@ export function AdminLogin({ initialError, onSuccess }: AdminLoginProps) {
 
   return (
     <div className="relative min-h-screen w-full flex items-center justify-center bg-bg p-4 sm:p-6 overflow-hidden">
-      {/* Arka Plan Atmosferi */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute -top-40 -left-40 size-96 rounded-full bg-forest/30 blur-3xl" />
-        <div className="absolute -bottom-40 -right-40 size-96 rounded-full bg-accent/15 blur-3xl" />
+      {/* Arka Plan Görseli ve Koyu Degrade Katmanı */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <img
+          src="/takasla-admin-wallpaper.webp"
+          alt="Takasla Arka Plan"
+          className="h-full w-full object-cover object-center"
+        />
+        {/* Karartma ve degrade katmanları - kartın okunurluğunu ve kontrastını korur */}
+        <div className="absolute inset-0 bg-bg/80 backdrop-blur-[2px]" />
+        <div className="absolute inset-0 bg-gradient-to-t from-bg via-bg/65 to-forest/40" />
       </div>
 
       {/* Ana Giriş Kartı */}
-      <div className="relative z-10 w-full max-w-md rounded-3xl bg-card p-6 sm:p-8 shadow-2xl ring-1 ring-line/70 backdrop-blur-xl">
+      <div className="relative z-10 w-full max-w-md rounded-3xl bg-card p-6 sm:p-8 shadow-[0_25px_60px_rgba(0,0,0,0.45)] ring-1 ring-white/20 backdrop-blur-xl">
         {/* Logo ve Başlık */}
         <div className="flex flex-col items-center text-center">
           <div className="flex items-center justify-center size-14 rounded-2xl bg-shell ring-1 ring-line/60 shadow-sm mb-4">
