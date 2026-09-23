@@ -39,13 +39,14 @@ interface AdminStore {
   setReportStatus: (id: string, status: ReportStatus) => Promise<void>;
   resolveReport: (options: {
     reportId: string;
-    action: "dismiss" | "delete_listing" | "warning" | "resolve_feedback";
+    action: "dismiss" | "delete_listing" | "warning" | "resolve_violation" | "resolve_feedback";
     customMessage?: string;
     reporterId?: string;
     targetTitle?: string;
     targetListingId?: string;
+    reportType?: string;
   }) => Promise<void>;
-  setSuggestionStatus: (id: string, status: SuggestionStatus) => void;
+  setSuggestionStatus: (id: string, status: SuggestionStatus) => Promise<void>;
 }
 
 export const useAdminStore = create<AdminStore>((set, get) => ({
@@ -187,8 +188,9 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
         rejectedOffers: rawOffers.filter((o) => o.status === "rejected").length,
       };
 
-      // Şikayetler tablosunu çek (Supabase public.reports)
+      // Şikayetler ve Öneriler tablosunu çek (Supabase public.reports)
       let reportsList: Report[] = [];
+      let suggestionsList: Suggestion[] = [];
       try {
         const { data: repData, error: repError } = await supabase
           .from("reports")
@@ -196,41 +198,77 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
           .order("created_at", { ascending: false });
 
         if (!repError && repData !== null) {
-          reportsList = repData.map((r, i) => {
+          repData.forEach((r, i) => {
             const dt = r.created_at ? new Date(r.created_at) : new Date();
             const timeStr = `${dt.toLocaleDateString("tr-TR")} ${dt.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}`;
+            const rawType = (r.type || "").toLowerCase().trim();
             const isAppIssue =
-              r.type === "app_issue" ||
-              r.type === "feedback" ||
-              r.type === "suggestion" ||
+              rawType === "app_issue" ||
+              rawType === "feedback" ||
+              rawType === "suggestion" ||
               r.target_id === "takasla_app" ||
               (r.target_title && r.target_title.toLowerCase().includes("uygulama"));
-            const isUserReport = r.type === "user";
-            const reportType = isAppIssue
-              ? "Uygulama / Öneri Bildirimi"
-              : isUserReport
-                ? "Kullanıcı Şikayeti"
-                : "İlan Bildirimi";
+            const isMessage = rawType === "message";
+            const isUser = rawType === "user";
 
-            return {
-              id: r.id || `SK-${i + 1}`,
-              subject: r.reason || "Bildirim",
-              reporter: r.reporter_name || (r.reporter_id ? userMap.get(r.reporter_id)?.name : undefined) || "Kullanıcı",
-              reporterId: r.reporter_id || undefined,
-              target: isAppIssue ? "Takasla Mobil Uygulama" : (r.target_title || "İlgili İlan"),
-              targetId: r.target_id || undefined,
-              type: reportType,
-              status: (r.status as ReportStatus) || "acik",
-              created: timeStr,
-              detail: r.details || r.reason || "",
-            };
+            let conversationId: string | undefined = undefined;
+            let cleanDetail = (r.details || r.reason || "").trim();
+            const convoMatch =
+              cleanDetail.match(/\(Konuşma ID:\s*([a-fA-F0-9\-]+)\)/i) ||
+              cleanDetail.match(/Konuşma ID:\s*([a-fA-F0-9\-]+)/i);
+            if (convoMatch) {
+              conversationId = convoMatch[1];
+              cleanDetail = cleanDetail.replace(/\(?Konuşma ID:\s*[a-fA-F0-9\-]+\)?/gi, "").trim();
+            }
+
+            if (isAppIssue) {
+              let sugStatus: SuggestionStatus = "yeni";
+              if (r.status === "inceleniyor") sugStatus = "degerlendiriliyor";
+              else if (r.status === "cozuldu") sugStatus = "uygulandi";
+              else if (r.status === "reddedildi") sugStatus = "arsiv";
+
+              suggestionsList.push({
+                id: r.id || `SUG-${i + 1}`,
+                title: r.reason || "Öneri / Geliştirme Fikri",
+                author: r.reporter_name || (r.reporter_id ? userMap.get(r.reporter_id)?.name : undefined) || "Kullanıcı",
+                authorId: r.reporter_id || undefined,
+                description: cleanDetail,
+                votes: 1,
+                status: sugStatus,
+                created: timeStr,
+                rawType: rawType || "app_issue",
+              });
+            } else {
+              let displayType = "İlan Şikayeti";
+              let finalRawType = "listing";
+              if (isMessage) {
+                displayType = "Mesaj Şikayeti";
+                finalRawType = "message";
+              } else if (isUser) {
+                displayType = "Kullanıcı Şikayeti";
+                finalRawType = "user";
+              }
+
+              reportsList.push({
+                id: r.id || `SK-${i + 1}`,
+                subject: r.reason || "Bildirim",
+                reporter: r.reporter_name || (r.reporter_id ? userMap.get(r.reporter_id)?.name : undefined) || "Kullanıcı",
+                reporterId: r.reporter_id || undefined,
+                target: isMessage ? (r.target_title || "Sohbet Mesajı") : (r.target_title || (isUser ? "Kullanıcı" : "İlgili İlan")),
+                targetId: r.target_id || undefined,
+                type: displayType,
+                rawType: finalRawType,
+                status: (r.status as ReportStatus) || "acik",
+                created: timeStr,
+                detail: r.details || r.reason || "",
+                cleanDetail,
+                conversationId,
+              });
+            }
           });
-        } else {
-          reportsList = [];
         }
       } catch (err) {
         console.warn("Reports fetch hatası:", err);
-        reportsList = [];
       }
 
       // Takaslanan İlanları Birleştir (Unified Swap Pairs)
@@ -283,6 +321,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
         users: usersList,
         listings: listingsList,
         reports: reportsList,
+        suggestions: suggestionsList,
         swapStats,
         completedSwapPairs: completedPairs,
         isLoading: false,
@@ -540,7 +579,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
   },
 
   resolveReport: async (options) => {
-    const { reportId, action, customMessage, reporterId, targetTitle, targetListingId } = options;
+    const { reportId, action, customMessage, reporterId, targetTitle, targetListingId, reportType } = options;
     const newStatus: ReportStatus = action === "dismiss" ? "reddedildi" : "cozuldu";
 
     set((s) => ({
@@ -558,23 +597,55 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
         let notifTitle = "";
         let notifMessage = "";
 
-        if (action === "resolve_feedback" || targetListingId === "takasla_app") {
-          notifTitle = "Geri Bildiriminiz İncelendi";
-          notifMessage =
-            customMessage ||
-            `İlettiğiniz "${targetTitle || "uygulama bildirimi"}" geliştirme ekibimizce incelendi ve değerlendirmeye alındı. Takasla deneyimini geliştirmemize katkı sağladığınız için teşekkür ederiz!`;
-        } else if (action === "dismiss") {
-          notifTitle = targetListingId === "takasla_app" ? "Bildiriminiz Not Alındı" : "Şikayetiniz İncelendi";
-          notifMessage =
-            customMessage ||
-            (targetListingId === "takasla_app"
-              ? `İlettiğiniz geri bildirim ekibimiz tarafından not alınmıştır. Teşekkür ederiz.`
-              : `"${targetTitle || "İlgili içerik"}" hakkındaki bildiriminiz moderasyon ekibimiz tarafından incelenmiş olup platform kurallarına aykırı bir duruma rastlanmamıştır. Hassasiyetiniz için teşekkür ederiz.`);
+        if (action === "dismiss") {
+          if (reportType === "message") {
+            notifTitle = "Mesaj Şikayetiniz İncelendi";
+            notifMessage =
+              customMessage ||
+              "Bildirdiğiniz sohbet mesajı moderasyon ekibimizce incelenmiş olup platform kurallarına aykırı bir duruma rastlanmamıştır. Hassasiyetiniz ve bildiriminiz için teşekkür ederiz.";
+          } else if (reportType === "user") {
+            notifTitle = "Kullanıcı Şikayetiniz İncelendi";
+            notifMessage =
+              customMessage ||
+              `"${targetTitle || "Kullanıcı"}" hakkındaki şikayetiniz moderasyon ekibimizce incelenmiş olup kural ihlali tespit edilmemiştir. Hassasiyetiniz için teşekkür ederiz.`;
+          } else if (reportType === "listing") {
+            notifTitle = "İlan Şikayetiniz İncelendi";
+            notifMessage =
+              customMessage ||
+              `"${targetTitle || "İlan"}" hakkındaki bildiriminiz moderasyon ekibimizce incelenmiş olup kural ihlali görülmemiştir. Hassasiyetiniz için teşekkür ederiz.`;
+          } else {
+            notifTitle = "Şikayetiniz İncelendi";
+            notifMessage =
+              customMessage ||
+              "Bildiriminiz moderasyon ekibimizce incelenmiş olup kural ihlali görülmemiştir. Teşekkür ederiz.";
+          }
         } else if (action === "delete_listing") {
           notifTitle = "Şikayetiniz Sonuçlandı: İlan Kaldırıldı";
           notifMessage =
             customMessage ||
-            `Bildirdiğiniz "${targetTitle || "ilan"}" incelendi ve platform kurallarımıza aykırı bulunduğu için sistemden kaldırıldı. Takasla topluluğunu korumamıza yardımcı olduğunuz için teşekkür ederiz!`;
+            `Bildirdiğiniz "${targetTitle || "ilan"}" incelendi ve platform kurallarımıza aykırı bulunduğu için yayından kaldırıldı. Takasla topluluğunu korumamıza yardımcı olduğunuz için teşekkür ederiz!`;
+        } else if (action === "resolve_violation") {
+          if (reportType === "message") {
+            notifTitle = "Şikayetiniz Sonuçlandı: Mesaj İncelendi";
+            notifMessage =
+              customMessage ||
+              "Bildirdiğiniz sohbet mesajı moderasyon ekibimizce incelenmiş, kural ihlali tespit edilmiş ve gerekli moderasyon işlemi uygulanmıştır. Topluluk güvenliğine katkınız için teşekkür ederiz!";
+          } else if (reportType === "user") {
+            notifTitle = "Şikayetiniz Sonuçlandı: Kullanıcı İncelendi";
+            notifMessage =
+              customMessage ||
+              `"${targetTitle || "Kullanıcı"}" hakkındaki şikayetiniz moderasyon ekibimizce incelenmiş ve gerekli yaptırımlar uygulanmıştır. Teşekkür ederiz!`;
+          } else {
+            notifTitle = "Şikayetiniz Çözüldü";
+            notifMessage =
+              customMessage ||
+              `"${targetTitle || "Bildiriminiz"}" incelenmiş ve gerekli moderasyon işlemi uygulanmıştır. Teşekkür ederiz!`;
+          }
+        } else if (action === "resolve_feedback") {
+          notifTitle = "Öneriniz Değerlendirildi";
+          notifMessage =
+            customMessage ||
+            `İlettiğiniz "${targetTitle || "uygulama bildirimi"}" geliştirme ekibimizce incelendi ve değerlendirmeye alındı. Takasla deneyimini geliştirmemize katkı sağladığınız için teşekkür ederiz!`;
         } else {
           notifTitle = "Şikayetiniz İncelendi";
           notifMessage =
@@ -610,10 +681,21 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
     }
   },
 
-  setSuggestionStatus: (id, status) =>
+  setSuggestionStatus: async (id, status) => {
     set((s) => ({
       suggestions: s.suggestions.map((x) => (x.id === id ? { ...x, status } : x)),
-    })),
+    }));
+    try {
+      let dbStatus: ReportStatus = "acik";
+      if (status === "degerlendiriliyor") dbStatus = "inceleniyor";
+      else if (status === "uygulandi") dbStatus = "cozuldu";
+      else if (status === "arsiv") dbStatus = "reddedildi";
+
+      await supabase.from("reports").update({ status: dbStatus }).eq("id", id);
+    } catch (e) {
+      console.error("setSuggestionStatus hatası:", e);
+    }
+  },
 }));
 
 if (typeof window !== "undefined") {

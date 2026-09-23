@@ -1,4 +1,4 @@
-import { ArrowUpRight, Package, Repeat, ShieldAlert, Users, Clock, CheckCircle2, AlertCircle } from "lucide-react";
+import { ArrowUpRight, Package, Repeat, ShieldAlert, Users, Clock, CheckCircle2, AlertCircle, Sparkles } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { useAdminStore } from "@/lib/store";
@@ -59,6 +59,7 @@ export function OverviewPage() {
   const listings = useAdminStore((s) => s.listings);
   const users = useAdminStore((s) => s.users);
   const reports = useAdminStore((s) => s.reports);
+  const suggestions = useAdminStore((s) => s.suggestions);
   const swapStats = useAdminStore((s) => s.swapStats);
 
   useEffect(() => {
@@ -70,6 +71,7 @@ export function OverviewPage() {
   const revisionListings = listings.filter((l) => l.status === "revision_requested");
   const rejectedListings = listings.filter((l) => l.status === "rejected");
   const openReports = reports.filter((r) => r.status === "acik" || r.status === "inceleniyor");
+  const openSuggestions = suggestions.filter((s) => s.status === "yeni" || s.status === "degerlendiriliyor");
 
   return (
     <AdminShell
@@ -134,13 +136,13 @@ export function OverviewPage() {
               icon={ShieldAlert}
               value={openReports.length}
               label="Açık Şikayet"
-              sublabel="İnceleme bekliyor"
+              sublabel={openReports.length > 0 ? "İnceleme bekliyor" : "Şikayet bulunmuyor"}
               tone={openReports.length > 0 ? "bad" : "good"}
               to="/sikayetler"
             />
           </div>
 
-          <div className="mt-4 grid grid-cols-2 gap-3.5 sm:grid-cols-4">
+          <div className="mt-4 grid grid-cols-2 gap-3.5 sm:grid-cols-3 lg:grid-cols-5">
             <Link
               to="/ilanlar"
               className="group rounded-xl bg-shell/30 p-3 ring-1 ring-line transition-all hover:bg-shell/70 hover:ring-forest/40"
@@ -179,10 +181,21 @@ export function OverviewPage() {
               className="group rounded-xl bg-shell/30 p-3 ring-1 ring-line transition-all hover:bg-shell/70 hover:ring-emerald-500/40"
             >
               <div className="flex items-center justify-between">
-                <span className="text-xs text-muted">Tamamlanan Takaslar</span>
+                <span className="text-xs text-muted">Tamamlanan Takas</span>
                 <ArrowUpRight className="size-3.5 text-emerald-600 opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
               <p className="mt-1 text-lg font-semibold tabular-nums text-emerald-600">{swapStats.acceptedOffers}</p>
+            </Link>
+
+            <Link
+              to="/oneriler"
+              className="group rounded-xl bg-shell/30 p-3 ring-1 ring-line transition-all hover:bg-shell/70 hover:ring-emerald-500/40"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted">Kullanıcı Önerileri</span>
+                <Sparkles className="size-3.5 text-emerald-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
+              <p className="mt-1 text-lg font-semibold tabular-nums text-emerald-600">{openSuggestions.length} açık</p>
             </Link>
           </div>
         </Panel>

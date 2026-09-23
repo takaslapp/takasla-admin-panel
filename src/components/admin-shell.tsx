@@ -57,11 +57,13 @@ export function AdminShell({
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const reports = useAdminStore((s) => s.reports);
+  const suggestions = useAdminStore((s) => s.suggestions);
   const listings = useAdminStore((s) => s.listings);
   const users = useAdminStore((s) => s.users);
 
-  // Açık şikayetler ve son bildirimler
+  // Açık şikayetler ve açık öneriler
   const openReports = useMemo(() => reports.filter((r) => r.status === "acik"), [reports]);
+  const openSuggestions = useMemo(() => suggestions.filter((s) => s.status === "yeni" || s.status === "degerlendiriliyor"), [suggestions]);
   const recentListings = useMemo(() => listings.slice(0, 2), [listings]);
   const recentUsers = useMemo(() => users.slice(0, 2), [users]);
 
@@ -139,18 +141,30 @@ export function AdminShell({
                   item.to === "/"
                     ? pathname === "/"
                     : pathname.startsWith(item.to);
+                const isReports = item.to === "/sikayetler";
+                const isSuggestions = item.to === "/oneriler";
+                const count = isReports ? openReports.length : isSuggestions ? openSuggestions.length : 0;
+
                 return (
                   <Link
                     key={item.to}
                     to={item.to}
                     className={cn(
-                      "rounded-full px-4 py-2 text-sm font-medium transition-colors duration-150",
+                      "inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition-colors duration-150",
                       active
-                        ? "bg-accent text-accent-fg"
+                        ? "bg-accent text-accent-fg shadow-xs"
                         : "text-card/90 hover:bg-card/15",
                     )}
                   >
-                    {item.label}
+                    <span>{item.label}</span>
+                    {count > 0 && (
+                      <span className={cn(
+                        "rounded-full px-1.5 py-0.2 text-[10px] font-extrabold tracking-tight",
+                        isReports ? "bg-rose-500 text-white" : "bg-emerald-500 text-white"
+                      )}>
+                        {count}
+                      </span>
+                    )}
                   </Link>
                 );
               })}
@@ -418,6 +432,10 @@ export function AdminShell({
                       item.to === "/"
                         ? pathname === "/"
                         : pathname.startsWith(item.to);
+                    const isReports = item.to === "/sikayetler";
+                    const isSuggestions = item.to === "/oneriler";
+                    const count = isReports ? openReports.length : isSuggestions ? openSuggestions.length : 0;
+
                     return (
                       <Link
                         key={item.to}
@@ -430,7 +448,17 @@ export function AdminShell({
                             : "text-forest hover:bg-shell/80",
                         )}
                       >
-                        <span>{item.label}</span>
+                        <div className="flex items-center gap-2">
+                          <span>{item.label}</span>
+                          {count > 0 && (
+                            <span className={cn(
+                              "rounded-full px-1.5 py-0.2 text-[10px] font-extrabold text-white",
+                              isReports ? "bg-rose-500" : "bg-emerald-500"
+                            )}>
+                              {count}
+                            </span>
+                          )}
+                        </div>
                         {active ? (
                           <span className="size-2 rounded-full bg-forest" />
                         ) : null}

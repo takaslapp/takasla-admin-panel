@@ -58,18 +58,24 @@ export type Report = {
   target: string;
   targetId?: string;
   type: string;
+  rawType: "message" | "user" | "listing" | "app_issue" | "feedback" | "suggestion" | string;
   status: ReportStatus;
   created: string;
   detail: string;
+  cleanDetail: string;
+  conversationId?: string;
 };
 
 export type Suggestion = {
   id: string;
   title: string;
   author: string;
+  authorId?: string;
+  description?: string;
   votes: number;
   status: SuggestionStatus;
   created: string;
+  rawType?: string;
 };
 
 export function formatPhone(phone: string | null | undefined): string {
