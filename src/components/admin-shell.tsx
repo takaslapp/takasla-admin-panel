@@ -102,6 +102,17 @@ export function AdminShell({
   );
   const unreadCount = unreadReports.length;
 
+  // Prevent background scroll when mobile menu or notification overlay is open
+  useEffect(() => {
+    if (open || notifOpen) {
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
+    }
+  }, [open, notifOpen]);
+
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut();
@@ -244,14 +255,37 @@ export function AdminShell({
             </div>
           </div>
 
-          {/* SİTE TARZI BİLDİRİM PANELİ (Fixed pozisyon ile kesilme veya taşma olmadan tam açılır) */}
+          
+          {/* Başlık ve Kicker Alanı */}
+          <div
+            className={cn(
+              "relative z-10 flex flex-col justify-end gap-6 px-4 pb-8 sm:px-8 lg:flex-row lg:items-end lg:justify-between lg:px-10",
+              compact ? "min-h-[130px] pt-4" : "min-h-[190px] pt-8 sm:min-h-[240px]",
+            )}
+          >
+            <div className="max-w-2xl text-card">
+              <p className="text-xs sm:text-sm text-card/85 font-medium">{kicker}</p>
+              <h1 className="mt-1.5 font-display text-2xl font-semibold leading-[1.1] tracking-tight sm:text-4xl lg:text-5xl">
+                {title}
+              </h1>
+            </div>
+            {actions ? <div className="shrink-0">{actions}</div> : null}
+          </div>
+        </div>
+
+        {/* Ana Sayfa İçeriği */}
+        <div className="w-full max-w-full min-w-0 px-2 pb-6 pt-3 sm:px-5 sm:pb-8 lg:px-6">{children}</div>
+      </div>
+
+      {/* Root Level Fixed Overlays (Banner isolate veya overflow-hidden sınırlarını aşar) */}
+      {/* SİTE TARZI BİLDİRİM PANELİ (Fixed pozisyon ile kesilme veya taşma olmadan tam açılır) */}
           {notifOpen ? (
             <>
               <div
-                className="fixed inset-0 z-40 bg-black/25 backdrop-blur-[1px]"
+                className="fixed inset-0 z-[99] bg-black/40 backdrop-blur-[2px]"
                 onClick={() => setNotifOpen(false)}
               />
-              <div className="fixed top-16 sm:top-20 right-3 sm:right-6 lg:right-8 z-50 flex max-h-[80vh] w-[calc(100vw-1.5rem)] max-w-sm flex-col rounded-2xl bg-card p-4 shadow-2xl ring-1 ring-line/80 backdrop-blur-xl sm:w-96 animate-in fade-in zoom-in-95">
+              <div className="fixed top-16 sm:top-20 right-3 sm:right-6 lg:right-8 z-[100] flex max-h-[80vh] w-[calc(100vw-1.5rem)] max-w-sm flex-col rounded-2xl bg-card p-4 shadow-2xl ring-1 ring-line/80 backdrop-blur-xl sm:w-96 animate-in fade-in zoom-in-95">
                 {/* Header */}
                 <div className="flex shrink-0 items-center justify-between border-b border-line/60 pb-3">
                   <div className="flex items-center gap-2">
@@ -411,10 +445,10 @@ export function AdminShell({
           {open ? (
             <>
               <div
-                className="fixed inset-0 z-40 bg-black/25 backdrop-blur-[2px] lg:hidden"
+                className="fixed inset-0 z-[99] bg-black/40 backdrop-blur-[2px] lg:hidden"
                 onClick={() => setOpen(false)}
               />
-              <div className="fixed top-16 inset-x-3 z-50 rounded-2xl bg-card p-3 shadow-2xl ring-1 ring-line/80 backdrop-blur-xl lg:hidden animate-in fade-in zoom-in-95">
+              <div className="fixed top-16 inset-x-3 z-[100] max-h-[calc(100dvh-5rem)] overflow-y-auto rounded-2xl bg-card p-3 shadow-2xl ring-1 ring-line/80 backdrop-blur-xl lg:hidden animate-in fade-in zoom-in-95">
                 <div className="flex items-center justify-between border-b border-line/60 px-2 pb-2 mb-2">
                   <span className="text-xs font-bold uppercase tracking-wider text-muted">Takasla Menü</span>
                   <button
@@ -484,27 +518,6 @@ export function AdminShell({
               </div>
             </>
           ) : null}
-
-          {/* Başlık ve Kicker Alanı */}
-          <div
-            className={cn(
-              "relative z-10 flex flex-col justify-end gap-6 px-4 pb-8 sm:px-8 lg:flex-row lg:items-end lg:justify-between lg:px-10",
-              compact ? "min-h-[130px] pt-4" : "min-h-[190px] pt-8 sm:min-h-[240px]",
-            )}
-          >
-            <div className="max-w-2xl text-card">
-              <p className="text-xs sm:text-sm text-card/85 font-medium">{kicker}</p>
-              <h1 className="mt-1.5 font-display text-2xl font-semibold leading-[1.1] tracking-tight sm:text-4xl lg:text-5xl">
-                {title}
-              </h1>
-            </div>
-            {actions ? <div className="shrink-0">{actions}</div> : null}
-          </div>
-        </div>
-
-        {/* Ana Sayfa İçeriği */}
-        <div className="w-full max-w-full min-w-0 px-2 pb-6 pt-3 sm:px-5 sm:pb-8 lg:px-6">{children}</div>
-      </div>
     </div>
   );
 }
