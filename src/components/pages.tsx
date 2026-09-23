@@ -2170,26 +2170,52 @@ export function ReportsPage() {
                     </div>
                   </div>
 
-                  {/* A) BİLDİREN KULLANICI */}
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
-                    <span className="font-medium text-ink/70">Bildiren Kullanıcı:</span>
-                    <div className="flex items-center gap-1.5 rounded-lg bg-shell/70 px-2.5 py-1 text-xs font-medium text-ink border border-line/60">
-                      <UserIcon className="size-3.5 text-muted" />
-                      <span className="font-semibold">{r.reporter}</span>
-                      {r.reporterId && (
-                        <span className="text-[10.5px] text-muted font-mono">
-                          ({r.reporterId.slice(0, 8)}...)
-                        </span>
-                      )}
+                  {/* A) BİLDİREN VE BİLDİRİLEN KULLANICILAR */}
+                  <div className="flex flex-wrap items-center gap-3 text-xs">
+                    {/* Bildiren Kullanıcı */}
+                    <div className="flex items-center gap-1.5 text-muted">
+                      <span className="font-medium text-ink/70">Bildiren:</span>
+                      <div className="flex items-center gap-1.5 rounded-lg bg-shell/70 px-2.5 py-1 font-medium text-ink border border-line/60">
+                        <UserIcon className="size-3.5 text-muted" />
+                        <span className="font-semibold">{r.reporter}</span>
+                        {r.reporterId && (
+                          <span className="text-[10.5px] text-muted font-mono">
+                            ({r.reporterId.slice(0, 8)}...)
+                          </span>
+                        )}
+                      </div>
                     </div>
+
+                    {/* Bildirilen Kullanıcı */}
+                    {(r.reportedUserName || r.rawType === "user") && (
+                      <div className="flex items-center gap-1.5 text-muted">
+                        <span className="font-medium text-rose-800">Bildirilen:</span>
+                        <div className="flex items-center gap-1.5 rounded-lg bg-rose-50 px-2.5 py-1 font-medium text-rose-950 border border-rose-200/80">
+                          <UserIcon className="size-3.5 text-rose-600" />
+                          <span className="font-bold">{r.reportedUserName || r.target}</span>
+                          {r.reportedUserId && (
+                            <span className="text-[10.5px] text-rose-800 font-mono">
+                              ({r.reportedUserId.slice(0, 8)}...)
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* B) BİLDİRİLEN İÇERİK (Type-Aware) */}
                   {r.rawType === "message" ? (
                     <div className="rounded-xl border border-line/80 bg-shell/40 p-3.5">
-                      <div className="flex items-center gap-1.5 text-xs font-semibold text-indigo-900 mb-1.5">
-                        <MessageSquare className="size-3.5 text-indigo-600" />
-                        <span>Bildirilen Mesaj</span>
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-indigo-900 mb-1.5">
+                        <div className="flex items-center gap-1.5">
+                          <MessageSquare className="size-3.5 text-indigo-600" />
+                          <span>Bildirilen Mesaj</span>
+                        </div>
+                        {r.reportedUserName && (
+                          <span className="text-muted text-[11px] font-normal">
+                            Mesaj Sahibi: <strong className="text-ink font-semibold">{r.reportedUserName}</strong>
+                          </span>
+                        )}
                       </div>
                       <div className="rounded-lg bg-card p-3 border border-line/70 shadow-2xs">
                         <p className="text-sm italic text-ink/90 font-sans leading-relaxed">
@@ -2384,6 +2410,24 @@ export function ReportsPage() {
                             <button
                               type="button"
                               onClick={() => copyToClipboard(r.reporterId!, "Bildiren ID")}
+                              className="p-1 hover:bg-shell rounded text-muted hover:text-ink shrink-0"
+                              title="Kopyala"
+                            >
+                              <Copy className="size-3.5" />
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Bildirilen Kullanıcı ID */}
+                        {r.reportedUserId && (
+                          <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-card border border-line/40">
+                            <div className="min-w-0">
+                              <span className="text-[10px] uppercase font-bold text-muted block">Bildirilen Kullanıcı ID</span>
+                              <span className="font-mono text-[11px] text-ink truncate block">{r.reportedUserId}</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => copyToClipboard(r.reportedUserId!, "Bildirilen Kullanıcı ID")}
                               className="p-1 hover:bg-shell rounded text-muted hover:text-ink shrink-0"
                               title="Kopyala"
                             >
@@ -2696,8 +2740,13 @@ export function ReportsPage() {
                       : "Şikayeti Kapat (İhlal Tespit Edilmedi)"}
                 </h3>
                 <p className="mt-1 text-xs text-muted leading-relaxed">
-                  Bildiren: <strong className="text-ink font-semibold">{actionModal.report.reporter}</strong> · Hedef:{" "}
-                  <strong className="text-ink font-semibold">{actionModal.report.target}</strong>
+                  Bildiren: <strong className="text-ink font-semibold">{actionModal.report.reporter}</strong>
+                  {actionModal.report.reportedUserName && (
+                    <> · Bildirilen: <strong className="text-ink font-semibold">{actionModal.report.reportedUserName}</strong></>
+                  )}
+                  {actionModal.report.rawType !== "user" && (
+                    <> · Hedef: <strong className="text-ink font-semibold">{actionModal.report.target}</strong></>
+                  )}
                 </p>
               </div>
             </div>

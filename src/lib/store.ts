@@ -79,6 +79,10 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
       const rawProfiles = profilesRes.data || [];
       const rawListings = (listingsRes.data || []) as any[];
       const rawOffers = offersRes.data || [];
+      const offerMap = new Map<string, any>();
+      for (const off of rawOffers) {
+        offerMap.set(off.id, off);
+      }
 
       // Her kullanıcının gerçek ilan sayısını hesapla
       const userListingCounts = new Map<string, number>();
@@ -212,13 +216,50 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
             const isUser = rawType === "user";
 
             let conversationId: string | undefined = undefined;
-            let cleanDetail = (r.details || r.reason || "").trim();
-            const convoMatch =
-              cleanDetail.match(/\(Konuşma ID:\s*([a-fA-F0-9\-]+)\)/i) ||
-              cleanDetail.match(/Konuşma ID:\s*([a-fA-F0-9\-]+)/i);
-            if (convoMatch) {
-              conversationId = convoMatch[1];
-              cleanDetail = cleanDetail.replace(/\(?Konuşma ID:\s*[a-fA-F0-9\-]+\)?/gi, "").trim();
+            let reportedUserName: string | undefined = undefined;
+            let reportedUserId: string | undefined = undefined;
+
+            const detailLines = (r.details || r.reason || "").split("\n");
+            const cleanLines: string[] = [];
+
+            for (const line of detailLines) {
+              const trimmed = line.trim();
+              const convoMatch = trimmed.match(/\(?Konuşma ID:\s*([a-fA-F0-9\-]+)\)?/i);
+              const repMatch = trimmed.match(/Bildirilen Kullanıcı:\s*([^|()\-]+)(?:(?:\s*\|\s*|\s*[-–]\s*)ID:\s*([a-fA-F0-9\-]+))?/i);
+              const repIdOnlyMatch = trimmed.match(/Bildirilen Kullanıcı ID:\s*([a-fA-F0-9\-]+)/i);
+
+              if (convoMatch) {
+                conversationId = convoMatch[1]?.trim();
+              } else if (repMatch) {
+                reportedUserName = repMatch[1]?.trim();
+                reportedUserId = repMatch[2]?.trim();
+              } else if (repIdOnlyMatch) {
+                reportedUserId = repIdOnlyMatch[1]?.trim();
+              } else {
+                cleanLines.push(line);
+              }
+            }
+
+            let cleanDetail = cleanLines.join("\n").trim();
+
+            if (isMessage && conversationId && offerMap.has(conversationId)) {
+              const offer = offerMap.get(conversationId);
+              const otherId = offer.sender_id === r.reporter_id ? offer.receiver_id : offer.sender_id;
+              if (!reportedUserId && otherId) {
+                reportedUserId = otherId;
+              }
+            }
+
+            if (reportedUserId && userMap.has(reportedUserId)) {
+              const profile = userMap.get(reportedUserId);
+              if (profile?.name) {
+                reportedUserName = profile.name;
+              }
+            }
+
+            if (isUser) {
+              reportedUserName = r.target_title || (r.target_id && userMap.get(r.target_id)?.name) || "Kullanıcı";
+              reportedUserId = r.target_id || undefined;
             }
 
             if (isAppIssue) {
@@ -254,7 +295,9 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
                 subject: r.reason || "Bildirim",
                 reporter: r.reporter_name || (r.reporter_id ? userMap.get(r.reporter_id)?.name : undefined) || "Kullanıcı",
                 reporterId: r.reporter_id || undefined,
-                target: isMessage ? (r.target_title || "Sohbet Mesajı") : (r.target_title || (isUser ? "Kullanıcı" : "İlgili İlan")),
+                reportedUserName,
+                reportedUserId,
+                target: isMessage ? (r.target_title || "Sohbet Mesajı") : (r.target_title || (isUser ? (reportedUserName || "Kullanıcı") : "İlgili İlan")),
                 targetId: r.target_id || undefined,
                 type: displayType,
                 rawType: finalRawType,

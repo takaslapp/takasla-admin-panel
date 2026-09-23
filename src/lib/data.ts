@@ -55,6 +55,8 @@ export type Report = {
   subject: string;
   reporter: string;
   reporterId?: string;
+  reportedUserName?: string;
+  reportedUserId?: string;
   target: string;
   targetId?: string;
   type: string;
