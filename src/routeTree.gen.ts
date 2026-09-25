@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AnalitikRouteImport } from './routes/analitik'
+import { Route as BannerlarRouteImport } from './routes/bannerlar'
 import { Route as BildirimlerRouteImport } from './routes/bildirimler'
 import { Route as IlanlarRouteImport } from './routes/ilanlar'
 import { Route as KullanicilarRouteImport } from './routes/kullanicilar'
@@ -25,6 +26,11 @@ const IndexRoute = IndexRouteImport.update({
 const AnalitikRoute = AnalitikRouteImport.update({
   id: '/analitik',
   path: '/analitik',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BannerlarRoute = BannerlarRouteImport.update({
+  id: '/bannerlar',
+  path: '/bannerlar',
   getParentRoute: () => rootRouteImport,
 } as any)
 const BildirimlerRoute = BildirimlerRouteImport.update({
@@ -56,6 +62,7 @@ const SikayetlerRoute = SikayetlerRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/analitik': typeof AnalitikRoute
+  '/bannerlar': typeof BannerlarRoute
   '/bildirimler': typeof BildirimlerRoute
   '/ilanlar': typeof IlanlarRoute
   '/kullanicilar': typeof KullanicilarRoute
@@ -65,6 +72,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/analitik': typeof AnalitikRoute
+  '/bannerlar': typeof BannerlarRoute
   '/bildirimler': typeof BildirimlerRoute
   '/ilanlar': typeof IlanlarRoute
   '/kullanicilar': typeof KullanicilarRoute
@@ -75,6 +83,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/analitik': typeof AnalitikRoute
+  '/bannerlar': typeof BannerlarRoute
   '/bildirimler': typeof BildirimlerRoute
   '/ilanlar': typeof IlanlarRoute
   '/kullanicilar': typeof KullanicilarRoute
@@ -86,6 +95,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/analitik'
+    | '/bannerlar'
     | '/bildirimler'
     | '/ilanlar'
     | '/kullanicilar'
@@ -95,6 +105,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/analitik'
+    | '/bannerlar'
     | '/bildirimler'
     | '/ilanlar'
     | '/kullanicilar'
@@ -104,6 +115,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/analitik'
+    | '/bannerlar'
     | '/bildirimler'
     | '/ilanlar'
     | '/kullanicilar'
@@ -114,6 +126,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AnalitikRoute: typeof AnalitikRoute
+  BannerlarRoute: typeof BannerlarRoute
   BildirimlerRoute: typeof BildirimlerRoute
   IlanlarRoute: typeof IlanlarRoute
   KullanicilarRoute: typeof KullanicilarRoute
@@ -135,6 +148,13 @@ declare module '@tanstack/react-router' {
       path: '/analitik'
       fullPath: '/analitik'
       preLoaderRoute: typeof AnalitikRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/bannerlar': {
+      id: '/bannerlar'
+      path: '/bannerlar'
+      fullPath: '/bannerlar'
+      preLoaderRoute: typeof BannerlarRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/bildirimler': {
@@ -178,6 +198,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AnalitikRoute: AnalitikRoute,
+  BannerlarRoute: BannerlarRoute,
   BildirimlerRoute: BildirimlerRoute,
   IlanlarRoute: IlanlarRoute,
   KullanicilarRoute: KullanicilarRoute,
