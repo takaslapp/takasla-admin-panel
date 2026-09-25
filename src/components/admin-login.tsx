@@ -57,10 +57,7 @@ export function AdminLogin({ initialError, onSuccess }: AdminLoginProps) {
 
       // 2. profiles tablosundan kullanıcının rolünü sorgula
       const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", authData.user.id)
-        .maybeSingle();
+        .rpc("get_my_profile");
 
       if (profileError) {
         await supabase.auth.signOut();

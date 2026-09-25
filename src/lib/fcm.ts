@@ -224,18 +224,7 @@ export async function sendTargetedAnnouncement({
       };
     }
 
-    // In-app bildirimi ekle
-    if (inAppNotification) {
-      try {
-        await supabase.from("notifications").insert({
-          user_id: userId,
-          title: cleanTitle,
-          message: cleanBody,
-          type: "system",
-          is_read: false,
-        });
-      } catch (_) {}
-    }
+    // In-app bildirimi send-push Edge Function tarafından merkezi ve idempotent olarak notifications tablosuna eklenir
 
     const devicesReached = data.sent_count ?? data.total_tokens ?? 1;
 
@@ -407,7 +396,7 @@ export async function sendListingNotificationPush({
   userId: string;
   title: string;
   body: string;
-  type: "listing_approved" | "listing_revision" | "listing_rejected" | "system" | string;
+  type: "listing_approved" | "listing_revision" | "listing_revision_requested" | "listing_rejected" | "system" | string;
   listingId?: string;
   relatedId?: string;
 }): Promise<boolean> {
@@ -415,7 +404,7 @@ export async function sendListingNotificationPush({
     const targetListingId = listingId || relatedId;
 
     let edgeType = type;
-    if (type === "listing_revision") {
+    if (type === "listing_revision" || type === "listing_revision_requested") {
       edgeType = "listing_revision_requested";
     } else if (type === "system") {
       edgeType = "system_announcement";
@@ -431,11 +420,10 @@ export async function sendListingNotificationPush({
       body,
     };
 
-    if (edgeType === "system_announcement") {
-      payload.recipient_user_id = userId;
-    } else {
+    payload.recipient_user_id = userId;
+
+    if (targetListingId) {
       payload.listing_id = targetListingId;
-      payload.recipient_user_id = userId;
     }
 
     const { data, error } = await supabase.functions.invoke("send-push", {

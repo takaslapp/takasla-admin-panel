@@ -68,7 +68,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
     try {
       // 1. Supabase Profiles, Listings (ile listing_images), Swap Offers
       const [profilesRes, listingsRes, offersRes] = await Promise.all([
-        supabase.from("profiles").select("*").order("created_at", { ascending: false }),
+        supabase.rpc("admin_get_profiles"),
         supabase
           .from("listings")
           .select("*, listing_images(image_url, display_order)")
@@ -76,7 +76,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
         supabase.from("swap_offers").select("*"),
       ]);
 
-      const rawProfiles = profilesRes.data || [];
+      const rawProfiles = (profilesRes.data as any[]) || [];
       const rawListings = (listingsRes.data || []) as any[];
       const rawOffers = offersRes.data || [];
       const offerMap = new Map<string, any>();
@@ -98,7 +98,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
       // Kullanıcı listesi
       let usersList: User[] = [];
       if (rawProfiles.length > 0) {
-        usersList = rawProfiles.map((p) => {
+        usersList = rawProfiles.map((p: any) => {
           const fullName = p.full_name || p.username || "Kullanıcı";
           const username = p.username ? `@${p.username}` : (p.phone ? `@${p.phone}` : "@uye");
           const phone = formatPhone(p.phone);
@@ -426,15 +426,6 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
           : `"${listingTitle}" başlıklı ilanınız incelendi ve vitrinde yayına alındı.`;
 
         try {
-          await supabase.from("notifications").insert({
-            user_id: ownerId,
-            title: notifTitle,
-            message: notifMessage,
-            type: "listing_approved",
-            notif_type: "listing_approved",
-            related_id: id,
-          });
-
           await sendListingNotificationPush({
             userId: ownerId,
             title: notifTitle,
@@ -443,7 +434,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
             listingId: id,
           });
         } catch (notifErr) {
-          console.warn("Notification insert / push fallback:", notifErr);
+          console.warn("Notification push fallback:", notifErr);
         }
       }
     } catch (e) {
@@ -487,24 +478,15 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
         const revTitle = `İlanınızı Gözden Geçirin: ${listingTitle}`;
         const revMessage = `Yönetici Notu: ${note}`;
         try {
-          await supabase.from("notifications").insert({
-            user_id: ownerId,
-            title: revTitle,
-            message: revMessage,
-            type: "listing_revision",
-            notif_type: "listing_revision",
-            related_id: id,
-          });
-
           await sendListingNotificationPush({
             userId: ownerId,
             title: revTitle,
             body: revMessage,
-            type: "listing_revision",
+            type: "listing_revision_requested",
             listingId: id,
           });
         } catch (notifErr) {
-          console.warn("Notification insert / push fallback:", notifErr);
+          console.warn("Notification push fallback:", notifErr);
         }
       }
     } catch (e) {
@@ -548,15 +530,6 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
         const rejTitle = `İlanınız Onaylanmadı: ${listingTitle}`;
         const rejMessage = `"${listingTitle}" başlıklı ilanınız platform kurallarına uygun görülmedi.\nSebep: ${reason}`;
         try {
-          await supabase.from("notifications").insert({
-            user_id: ownerId,
-            title: rejTitle,
-            message: rejMessage,
-            type: "listing_rejected",
-            notif_type: "listing_rejected",
-            related_id: id,
-          });
-
           await sendListingNotificationPush({
             userId: ownerId,
             title: rejTitle,
@@ -565,7 +538,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
             listingId: id,
           });
         } catch (notifErr) {
-          console.warn("Notification insert / push fallback:", notifErr);
+          console.warn("Notification push fallback:", notifErr);
         }
       }
     } catch (e) {
@@ -697,15 +670,6 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
         }
 
         try {
-          await supabase.from("notifications").insert({
-            user_id: reporterId,
-            title: notifTitle,
-            message: notifMessage,
-            type: "system",
-            notif_type: "system",
-            related_id: targetListingId || reportId,
-          });
-
           await sendListingNotificationPush({
             userId: reporterId,
             title: notifTitle,
@@ -715,7 +679,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
             relatedId: targetListingId || reportId,
           });
         } catch (notifErr) {
-          console.warn("Notification insert / push error:", notifErr);
+          console.warn("Notification push error:", notifErr);
         }
       }
     } catch (e) {

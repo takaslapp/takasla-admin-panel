@@ -52,10 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const verifyAdminRole = useCallback(async (user: User): Promise<boolean> => {
     try {
       const { data: profile, error } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .maybeSingle();
+        .rpc("get_my_profile");
 
       if (error || !profile || profile.role !== "admin") {
         await supabase.auth.signOut();
