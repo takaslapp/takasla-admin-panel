@@ -117,25 +117,70 @@ export async function updateBanner(
   return data as Banner;
 }
 
-export async function deleteBanner(id: string, imageUrl?: string): Promise<void> {
-  const { error } = await supabase.from("banners").delete().eq("id", id);
+/**
+ * URL üzerinden ilgili görseli siler (R2 veya legacy Supabase Storage)
+ * Harici linklere dokunmaz.
+ */
+export async function deleteBannerImageByUrl(imageUrl?: string | null): Promise<void> {
+  if (!imageUrl || typeof imageUrl !== "string") return;
 
-  if (error) {
-    console.error("deleteBanner error:", error);
-    throw error;
+  const isTakaslaR2 =
+    imageUrl.includes("cdn.takaslapp.com/banners/") ||
+    imageUrl.includes("/banners/banner_");
+
+  const isLegacySupabase =
+    imageUrl.includes("/storage/v1/object/public/banners/") ||
+    (imageUrl.includes("/banners/") && !imageUrl.includes("cdn.takaslapp.com"));
+
+  // 1. Cloudflare R2 Banner Objesi Silme
+  if (isTakaslaR2) {
+    try {
+      const match = imageUrl.match(/banners\/banner_[a-zA-Z0-9_-]+\.(webp|jpg|jpeg|png)/);
+      if (match) {
+        const objectKey = match[0];
+        const { data, error } = await supabase.functions.invoke("r2-delete", {
+          body: { objectKey },
+        });
+
+        if (error || (data && data.success === false)) {
+          console.warn("⚠️ [R2 Banner Delete Hatası]:", error || data);
+        } else {
+          console.log("✅ [R2 Banner Delete Başarılı]:", objectKey);
+        }
+      }
+    } catch (e) {
+      console.warn("⚠️ [R2 Banner Deletion Exception]:", e);
+    }
+    return;
   }
 
-  // Eğer görsel Supabase Storage 'banners' bucket'ından ise temizle
-  if (imageUrl && imageUrl.includes("/banners/")) {
+  // 2. Legacy Supabase Storage Bucket Silme (Geriye Dönük Uyumluluk)
+  if (isLegacySupabase) {
     try {
       const parts = imageUrl.split("/banners/");
       if (parts.length > 1) {
         const filePath = decodeURIComponent(parts[1].split("?")[0]);
         await supabase.storage.from("banners").remove([filePath]);
+        console.log("✅ [Legacy Supabase Banner Delete]:", filePath);
       }
     } catch (e) {
-      console.warn("Storage deletion warning:", e);
+      console.warn("⚠️ [Legacy Storage Deletion Warning]:", e);
     }
+  }
+}
+
+export async function deleteBanner(id: string, imageUrl?: string): Promise<void> {
+  // 1. Önce veritabanı kaydını sil
+  const { error } = await supabase.from("banners").delete().eq("id", id);
+
+  if (error) {
+    console.error("deleteBanner DB error:", error);
+    throw error;
+  }
+
+  // 2. DB silme başarılı olduktan sonra görseli temizle
+  if (imageUrl) {
+    await deleteBannerImageByUrl(imageUrl);
   }
 }
 
@@ -151,51 +196,109 @@ export async function toggleBannerActive(id: string, isActive: boolean): Promise
   }
 }
 
+/**
+ * Tarayıcı tarafında görseli WebP formatına dönüştürür ve boyutlarını okur
+ */
+async function processAndConvertToWebP(
+  file: File
+): Promise<{ blob: Blob; width: number; height: number }> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      const width = img.naturalWidth;
+      const height = img.naturalHeight;
+
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        reject(new Error("Canvas context oluşturulamadı."));
+        return;
+      }
+
+      ctx.drawImage(img, 0, 0, width, height);
+
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            reject(new Error("WebP dönüşümü başarısız oldu."));
+            return;
+          }
+          resolve({ blob, width, height });
+        },
+        "image/webp",
+        0.90 // Kaliteli WebP sıkıştırması
+      );
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("Görsel yüklenemedi veya geçersiz dosya biçimi."));
+    };
+
+    img.src = objectUrl;
+  });
+}
+
+/**
+ * 🚀 Cloudflare R2 Presigned Upload ile Banner Yükleme
+ * r2-sign Edge Function'ı üzerinden güvenli URL alır ve HTTP PUT ile R2'ye yükler.
+ */
 export async function uploadBannerImage(
   file: File
-): Promise<{ url: string; width?: number; height?: number }> {
-  // 1. Dosya boyutu kontrolü (Maksimum 5MB)
+): Promise<{ url: string; width: number; height: number }> {
+  // 1. Maksimum dosya boyutu kontrolü (5MB)
   if (file.size > 5 * 1024 * 1024) {
     throw new Error("Görsel boyutu 5 MB'dan küçük olmalıdır.");
   }
 
-  // 2. Boyutları tespit et
-  const dimensions = await new Promise<{ width: number; height: number }>((resolve) => {
-    const img = new Image();
-    img.onload = () => {
-      resolve({ width: img.naturalWidth, height: img.naturalHeight });
-    };
-    img.onerror = () => {
-      resolve({ width: 0, height: 0 });
-    };
-    img.src = URL.createObjectURL(file);
-  });
+  // 2. WebP optimizasyonu ve boyut tespiti
+  const { blob: webpBlob, width, height } = await processAndConvertToWebP(file);
 
-  // 3. Dosya uzantısı ve tekil isim
-  const ext = file.name.split(".").pop()?.toLowerCase() || "webp";
-  const uniqueName = `banner_${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${ext}`;
+  // 3. r2-sign Edge Function üzerinden presigned PUT URL al
+  const { data: signData, error: signError } = await supabase.functions.invoke(
+    "r2-sign",
+    {
+      body: {
+        type: "banner",
+        contentType: "image/webp",
+      },
+    }
+  );
 
-  // 4. Supabase Storage 'banners' bucket'ına yükle
-  const { data, error } = await supabase.storage
-    .from("banners")
-    .upload(uniqueName, file, {
-      cacheControl: "3600",
-      upsert: false,
-    });
-
-  if (error) {
-    console.error("uploadBannerImage error:", error);
-    throw new Error(`Görsel yüklenemedi: ${error.message}`);
+  if (signError || !signData?.success || !signData?.uploadUrl || !signData?.publicUrl) {
+    console.error("r2-sign error:", signError || signData);
+    const msg = signData?.error || signError?.message || "R2 presigned URL temin edilemedi";
+    throw new Error(`R2 Yükleme Başarısız: ${msg}`);
   }
 
-  // 5. Public URL al
-  const { data: publicUrlData } = supabase.storage
-    .from("banners")
-    .getPublicUrl(data.path);
+  const uploadUrl = signData.uploadUrl as string;
+  const publicUrl = signData.publicUrl as string;
+
+  // 4. Doğrudan Cloudflare R2'ye HTTP PUT ile yükle
+  const putResponse = await fetch(uploadUrl, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "image/webp",
+    },
+    body: webpBlob,
+  });
+
+  if (!putResponse.ok) {
+    console.error("R2 PUT error:", putResponse.status, putResponse.statusText);
+    throw new Error(`Cloudflare R2 yükleme başarısız (HTTP ${putResponse.status})`);
+  }
+
+  console.log(`✅ [R2 Banner Upload]: Başarıyla yüklendi -> ${publicUrl}`);
 
   return {
-    url: publicUrlData.publicUrl,
-    width: dimensions.width,
-    height: dimensions.height,
+    url: publicUrl,
+    width,
+    height,
   };
 }

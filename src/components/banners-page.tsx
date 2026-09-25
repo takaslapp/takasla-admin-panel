@@ -33,6 +33,7 @@ import {
   createBanner,
   updateBanner,
   deleteBanner,
+  deleteBannerImageByUrl,
   toggleBannerActive,
   uploadBannerImage,
 } from "@/lib/banners";
@@ -142,19 +143,22 @@ export function BannersPage() {
     }
 
     setSubmitting(true);
+    let newlyUploadedUrl: string | null = null;
     try {
       let finalImageUrl = imageUrl;
 
-      // Eğer yeni bir dosya seçildiyse storage'a yükle
+      // Eğer yeni bir dosya seçildiyse Cloudflare R2'ye yükle
       if (uploadFile) {
         setIsUploading(true);
-        toast.info("Görsel Supabase Storage'a yükleniyor...");
+        toast.info("Görsel Cloudflare R2'ye yükleniyor...");
         const result = await uploadBannerImage(uploadFile);
         finalImageUrl = result.url;
+        newlyUploadedUrl = result.url;
         setIsUploading(false);
       }
 
       if (editingBanner) {
+        const oldImageUrl = editingBanner.image_url;
         await updateBanner(editingBanner.id, {
           title: title.trim(),
           image_url: finalImageUrl,
@@ -163,6 +167,14 @@ export function BannersPage() {
           display_order: Number(displayOrder) || 0,
           is_active: isActive,
         });
+
+        // 🛡️ REPLACEMENT CLEANUP: Update başarılı olduktan SONRA eski görsel R2 veya storage ise sil
+        if (uploadFile && oldImageUrl && oldImageUrl !== finalImageUrl) {
+          deleteBannerImageByUrl(oldImageUrl).catch((e) =>
+            console.warn("Eski banner görseli temizlenirken hata:", e)
+          );
+        }
+
         toast.success("Banner başarıyla güncellendi.");
       } else {
         await createBanner({
@@ -179,6 +191,13 @@ export function BannersPage() {
       setModalOpen(false);
       await loadData(true);
     } catch (err: any) {
+      // 🛡️ ORPHAN CLEANUP: Eğer yeni bir görsel R2'ye yüklendikten sonra DB insert/update patlarsa,
+      // yetim kalmaması için yeni yüklenen R2 görselini güvenle temizle
+      if (newlyUploadedUrl) {
+        deleteBannerImageByUrl(newlyUploadedUrl).catch((e) =>
+          console.warn("Orphan banner görseli temizlenirken hata:", e)
+        );
+      }
       toast.error("İşlem başarısız: " + (err?.message || "Bilinmeyen hata"));
     } finally {
       setSubmitting(false);
