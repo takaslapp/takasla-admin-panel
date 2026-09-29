@@ -17,6 +17,8 @@ export const Route = createRootRoute({
         name: "description",
         content: "Takasla — Parayla değil takasla. Mobil uygulama yönetim paneli.",
       },
+      { name: "robots", content: "noindex, nofollow, noarchive, nosnippet" },
+      { name: "googlebot", content: "noindex, nofollow, noarchive, nosnippet" },
     ],
     links: [
       { rel: "icon", type: "image/png", href: "/favicon.png" },
