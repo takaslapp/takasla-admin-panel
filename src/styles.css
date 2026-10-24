@@ -66,3 +66,12 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Utility for smooth scroll without visible bar */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

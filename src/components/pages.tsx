@@ -98,7 +98,7 @@ export function UsersPage() {
   const rows = useMemo(
     () =>
       users.filter((u) =>
-        `${u.name} ${u.username} ${u.phone} ${u.city}`.toLowerCase().includes(q.toLowerCase()),
+        `${u.name} ${u.username} ${u.city}`.toLowerCase().includes(q.toLowerCase()),
       ),
     [users, q],
   );
@@ -106,7 +106,7 @@ export function UsersPage() {
   return (
     <AdminShell compact kicker="Kullanıcı Yönetimi" title="Kayıtlı Kullanıcılar">
       <Panel title="Kullanıcı Listesi" subtitle={`${users.length} kayıtlı üye`}>
-        <Toolbar value={q} onChange={setQ} placeholder="İsim, kullanıcı adı, telefon veya şehir ara..." />
+        <Toolbar value={q} onChange={setQ} placeholder="İsim, kullanıcı adı veya şehir ara..." />
         
         {/* Mobil Kullanıcı Kartları */}
         <div className="space-y-3 md:hidden">
@@ -141,12 +141,8 @@ export function UsersPage() {
                   </span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 text-xs text-muted pt-1.5 border-t border-line/60">
-                  <span className="inline-flex items-center gap-1 truncate font-mono text-ink/90">
-                    <Phone className="size-3 text-muted shrink-0" />
-                    {u.phone}
-                  </span>
-                  <span className="inline-flex items-center gap-1 justify-end truncate">
+                <div className="flex items-center justify-between text-xs text-muted pt-1.5 border-t border-line/60">
+                  <span className="inline-flex items-center gap-1 truncate">
                     <MapPin className="size-3 text-muted shrink-0" />
                     {u.city}
                   </span>
@@ -154,7 +150,7 @@ export function UsersPage() {
                     <Calendar className="size-3 text-muted shrink-0" />
                     {u.joined}
                   </span>
-                  <span className="inline-flex items-center gap-1 justify-end text-[11px] font-bold text-forest">
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-forest">
                     {u.listingsCount} İlan
                   </span>
                 </div>
@@ -169,7 +165,6 @@ export function UsersPage() {
             <thead className="text-xs uppercase tracking-wide text-muted">
               <tr className="border-b border-line">
                 <th className="pb-3 font-semibold">Kullanıcı Bilgileri</th>
-                <th className="pb-3 font-semibold">Telefon</th>
                 <th className="pb-3 font-semibold">Şehir</th>
                 <th className="pb-3 font-semibold text-center">İlan Sayısı</th>
                 <th className="pb-3 font-semibold">Kayıt Tarihi</th>
@@ -179,7 +174,7 @@ export function UsersPage() {
             <tbody className="divide-y divide-line/60">
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-muted">
+                  <td colSpan={5} className="py-8 text-center text-muted">
                     Aramanıza uygun kullanıcı bulunamadı.
                   </td>
                 </tr>
@@ -201,12 +196,6 @@ export function UsersPage() {
                           <p className="text-xs text-muted font-mono">{u.username}</p>
                         </div>
                       </div>
-                    </td>
-                    <td className="py-3.5 font-mono text-xs text-ink/90">
-                      <span className="inline-flex items-center gap-1.5">
-                        <Phone className="size-3.5 text-muted" />
-                        {u.phone}
-                      </span>
                     </td>
                     <td className="py-3.5 text-muted">
                       <span className="inline-flex items-center gap-1">
@@ -509,51 +498,95 @@ export function ListingsPage() {
   return (
     <AdminShell compact kicker="İlan Moderasyon Merkezi" title="Tüm İlanlar">
       <div className="grid gap-5">
-        {/* İlan Durumu Filtreleme Sekmeleri */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant={activeTab === "all" ? "dark" : "outline"}
-              size="sm"
+        {/* İlan Durumu Filtreleme Sekmeleri (Mobilde yatay kaydırılabilir, masaüstünde akıcı) */}
+        <div className="w-full min-w-0">
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 -mx-1 px-1 sm:flex-wrap">
+            <button
+              type="button"
               onClick={() => setActiveTab("all")}
+              className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                activeTab === "all"
+                  ? "bg-forest text-white shadow-xs"
+                  : "bg-card text-ink/80 hover:bg-shell border border-line"
+              }`}
             >
-              Tümü ({totalDisplayCount})
-            </Button>
-            <Button
-              variant={activeTab === "pending" ? "dark" : "outline"}
-              size="sm"
+              <span>Tümü</span>
+              <span className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${activeTab === "all" ? "bg-white/20 text-white" : "bg-shell text-muted"}`}>
+                {totalDisplayCount}
+              </span>
+            </button>
+            <button
+              type="button"
               onClick={() => setActiveTab("pending")}
+              className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                activeTab === "pending"
+                  ? "bg-forest text-white shadow-xs"
+                  : pendingCount > 0
+                    ? "bg-amber-50 text-amber-900 border border-amber-300 hover:bg-amber-100"
+                    : "bg-card text-ink/80 hover:bg-shell border border-line"
+              }`}
             >
-              Onay Bekleyenler ({pendingCount})
-            </Button>
-            <Button
-              variant={activeTab === "approved" ? "dark" : "outline"}
-              size="sm"
+              <span>Onay Bekleyenler</span>
+              <span className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${activeTab === "pending" ? "bg-white/20 text-white" : pendingCount > 0 ? "bg-amber-600 text-white" : "bg-shell text-muted"}`}>
+                {pendingCount}
+              </span>
+            </button>
+            <button
+              type="button"
               onClick={() => setActiveTab("approved")}
+              className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                activeTab === "approved"
+                  ? "bg-forest text-white shadow-xs"
+                  : "bg-card text-ink/80 hover:bg-shell border border-line"
+              }`}
             >
-              Yayındakiler ({approvedCount})
-            </Button>
-            <Button
-              variant={activeTab === "completed" ? "dark" : "outline"}
-              size="sm"
+              <span>Yayındakiler</span>
+              <span className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${activeTab === "approved" ? "bg-white/20 text-white" : "bg-shell text-muted"}`}>
+                {approvedCount}
+              </span>
+            </button>
+            <button
+              type="button"
               onClick={() => setActiveTab("completed")}
+              className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                activeTab === "completed"
+                  ? "bg-forest text-white shadow-xs"
+                  : "bg-card text-ink/80 hover:bg-shell border border-line"
+              }`}
             >
-              Takaslananlar ({completedCount})
-            </Button>
-            <Button
-              variant={activeTab === "revision_requested" ? "dark" : "outline"}
-              size="sm"
+              <span>Takaslananlar</span>
+              <span className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${activeTab === "completed" ? "bg-white/20 text-white" : "bg-shell text-muted"}`}>
+                {completedCount}
+              </span>
+            </button>
+            <button
+              type="button"
               onClick={() => setActiveTab("revision_requested")}
+              className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                activeTab === "revision_requested"
+                  ? "bg-forest text-white shadow-xs"
+                  : "bg-card text-ink/80 hover:bg-shell border border-line"
+              }`}
             >
-              Düzenleme İstenenler ({revisionCount})
-            </Button>
-            <Button
-              variant={activeTab === "rejected" ? "dark" : "outline"}
-              size="sm"
+              <span>Düzenleme İstenenler</span>
+              <span className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${activeTab === "revision_requested" ? "bg-white/20 text-white" : "bg-shell text-muted"}`}>
+                {revisionCount}
+              </span>
+            </button>
+            <button
+              type="button"
               onClick={() => setActiveTab("rejected")}
+              className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                activeTab === "rejected"
+                  ? "bg-forest text-white shadow-xs"
+                  : "bg-card text-ink/80 hover:bg-shell border border-line"
+              }`}
             >
-              Reddedilenler ({rejectedCount})
-            </Button>
+              <span>Reddedilenler</span>
+              <span className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${activeTab === "rejected" ? "bg-white/20 text-white" : "bg-shell text-muted"}`}>
+                {rejectedCount}
+              </span>
+            </button>
           </div>
         </div>
 
@@ -773,143 +806,241 @@ export function ListingsPage() {
                 return (
                   <div
                     key={l.id}
-                    className={`rounded-2xl border transition-all p-3.5 shadow-sm space-y-3 ${
+                    className={`rounded-2xl border transition-all p-3.5 sm:p-4 shadow-xs space-y-3 min-w-0 overflow-hidden ${
                       isSelected
                         ? "border-rose-400 bg-rose-50/40 ring-2 ring-rose-200"
-                        : "border-line/70 bg-card"
+                        : "border-line/70 bg-card hover:border-forest/30"
                     }`}
                   >
-                    <div className="flex items-start gap-3">
-                      <div className="flex items-center gap-2.5 shrink-0">
+                    {/* 1. ÜST KISIM: Checkbox, Kategori & Durum Rozeti */}
+                    <div className="flex items-center justify-between gap-2 border-b border-line/50 pb-2.5 min-w-0">
+                      <div className="flex items-center gap-2 min-w-0 truncate">
                         <input
                           type="checkbox"
                           checked={isSelected}
                           onChange={() => handleToggleSelect(l.id)}
-                          className="size-4.5 rounded border-line text-rose-600 focus:ring-rose-500 cursor-pointer accent-rose-600"
+                          className="size-4.5 rounded border-line text-rose-600 focus:ring-rose-500 cursor-pointer accent-rose-600 shrink-0"
                           title="Seç / Seçimi Kaldır"
                         />
-                        <div
-                          onClick={() => {
-                            setPreviewListing(l);
-                            setSelectedPhotoIndex(0);
-                          }}
-                          className="relative size-16 shrink-0 cursor-pointer overflow-hidden rounded-xl border border-line bg-shell/50"
-                        >
-                          {mainPhoto ? (
-                            <img
-                              src={mainPhoto}
-                              alt={l.title}
-                              className="size-full object-cover"
-                              onError={(e) => {
-                                (e.target as HTMLElement).style.display = "none";
-                              }}
-                            />
-                          ) : (
-                            <div className="grid size-full place-items-center text-muted">
-                              <Package className="size-5 opacity-40" />
-                            </div>
-                          )}
-                          {hasPhotos && l.images.length > 1 && (
-                            <span className="absolute bottom-0.5 right-0.5 rounded bg-black/70 px-1 py-0.2 text-[9px] font-bold text-white">
-                              +{l.images.length - 1}
-                            </span>
-                          )}
-                        </div>
+                        <span className="rounded-md bg-shell px-2 py-0.5 text-[11px] font-semibold text-forest truncate border border-line/50">
+                          {l.category}
+                        </span>
+                        <span className="text-[11px] text-muted truncate">
+                          ({l.condition})
+                        </span>
                       </div>
 
-                      <div className="min-w-0 flex-1">
+                      <div className="shrink-0">
+                        {l.status === "pending" ? (
+                          <StatusChip tone="warn">Onay Bekliyor</StatusChip>
+                        ) : l.status === "revision_requested" ? (
+                          <StatusChip tone="warn">Revize İstendi</StatusChip>
+                        ) : l.status === "approved" || l.status === "yayinda" ? (
+                          <StatusChip tone="ok">Yayında</StatusChip>
+                        ) : (
+                          <StatusChip tone="bad">Reddedildi</StatusChip>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 2. ORTA KISIM: Görsel + Başlık & Detaylar */}
+                    <div className="flex items-start gap-3 min-w-0">
+                      <div
+                        onClick={() => {
+                          setPreviewListing(l);
+                          setSelectedPhotoIndex(0);
+                        }}
+                        className="relative size-20 shrink-0 cursor-pointer overflow-hidden rounded-xl border border-line bg-shell/50 shadow-2xs group"
+                      >
+                        {mainPhoto ? (
+                          <img
+                            src={mainPhoto}
+                            alt={l.title}
+                            className="size-full object-cover transition-transform group-hover:scale-105"
+                            onError={(e) => {
+                              (e.target as HTMLElement).style.display = "none";
+                            }}
+                          />
+                        ) : (
+                          <div className="grid size-full place-items-center text-muted">
+                            <Package className="size-6 opacity-40" />
+                          </div>
+                        )}
+                        {hasPhotos && l.images.length > 1 && (
+                          <span className="absolute bottom-1 right-1 rounded-md bg-black/75 px-1.5 py-0.2 text-[9px] font-bold text-white shadow-xs">
+                            +{l.images.length - 1}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="min-w-0 flex-1 space-y-1">
                         <h4
                           onClick={() => {
                             setPreviewListing(l);
                             setSelectedPhotoIndex(0);
                           }}
-                          className="font-bold text-sm text-ink line-clamp-2 cursor-pointer hover:text-forest"
+                          className="font-bold text-sm text-ink line-clamp-2 cursor-pointer hover:text-forest leading-snug"
                         >
                           {l.title}
                         </h4>
-                        <p className="text-xs text-muted flex items-center gap-1 mt-1">
-                          <MapPin className="size-3 shrink-0" /> {l.city} · <Clock className="size-3 shrink-0" /> {l.created}
+                        <p className="text-xs text-muted flex items-center gap-1 truncate">
+                          <MapPin className="size-3 shrink-0 text-muted/70" />
+                          <span className="truncate">{l.city}</span>
+                          <span className="text-muted/50">·</span>
+                          <Clock className="size-3 shrink-0 text-muted/70" />
+                          <span className="truncate">{l.created}</span>
                         </p>
-                        <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                          <span className="rounded-md bg-shell px-2 py-0.5 text-[11px] font-medium text-ink">
-                            {l.category}
-                          </span>
-                          <span className="text-[11px] text-muted">({l.condition})</span>
+                        <p className="text-xs text-muted truncate pt-0.5">
+                          <span className="text-muted/80">Sahibi:</span>{" "}
+                          <strong className="font-semibold text-ink">{l.ownerName}</strong>
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* 3. TAKAS TERCİHİ ŞERİDİ */}
+                    <div className="flex items-center gap-2 rounded-xl bg-shell/60 px-3 py-2 text-xs border border-line/50 min-w-0">
+                      <ArrowLeftRight className="size-3.5 text-forest shrink-0" />
+                      <span className="text-muted font-medium shrink-0">Takas:</span>
+                      <span className="font-semibold text-emerald-950 truncate">
+                        {l.wants && l.wants.trim() !== "" ? l.wants : "Açık Teklif"}
+                      </span>
+                    </div>
+
+                    {/* 4. AKSİYON BUTONLARI (Derli toplu & dokunma dostu) */}
+                    <div className="pt-2 border-t border-line/60">
+                      {l.status === "pending" || l.status === "revision_requested" ? (
+                        <div className="space-y-2">
+                          <div className="grid grid-cols-2 gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-9 text-xs font-semibold text-forest border-forest/30 bg-forest/5 hover:bg-forest/10"
+                              onClick={() => {
+                                setPreviewListing(l);
+                                setSelectedPhotoIndex(0);
+                              }}
+                            >
+                              <Eye className="size-3.5 mr-1" /> İncele
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="h-9 bg-forest hover:bg-forest/90 text-white text-xs font-semibold shadow-xs"
+                              onClick={() => handleApprove(l.id, l.title)}
+                            >
+                              <Check className="size-3.5 mr-1" /> Onayla
+                            </Button>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="flex-1 h-8 text-xs font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border-amber-300"
+                              onClick={() => handleOpenRevision(l)}
+                            >
+                              <Edit3 className="size-3 mr-1" /> Revize
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="flex-1 h-8 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border-rose-300"
+                              onClick={() => handleOpenReject(l)}
+                            >
+                              <XCircle className="size-3 mr-1" /> Reddet
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 px-2.5 text-rose-600 hover:text-rose-700 hover:bg-rose-50 border border-rose-200/60 rounded-xl"
+                              onClick={() => handleOpenDelete(l.id, l.title)}
+                              title="İlanı Sil"
+                            >
+                              <Trash2 className="size-3.5" />
+                            </Button>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-
-                    <div className="rounded-xl bg-shell/40 p-2.5 space-y-1.5 text-xs">
-                      <div className="flex items-center justify-between">
-                        <span className="text-muted">İlan Sahibi:</span>
-                        <span className="font-semibold text-ink">{l.ownerName} ({l.ownerPhone})</span>
-                      </div>
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-muted shrink-0">Takas:</span>
-                        <span className="font-medium text-emerald-900 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200/60 truncate max-w-[200px]">
-                          {l.wants}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between pt-1">
-                      <span className="text-xs font-medium text-muted">Durum:</span>
-                      {l.status === "pending" ? (
-                        <StatusChip tone="warn">Onay Bekliyor</StatusChip>
-                      ) : l.status === "revision_requested" ? (
-                        <StatusChip tone="warn">Revize İstendi</StatusChip>
                       ) : l.status === "approved" || l.status === "yayinda" ? (
-                        <StatusChip tone="ok">Yayında</StatusChip>
+                        <div className="flex items-center gap-1.5">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1 h-9 text-xs font-semibold text-forest border-forest/30 bg-forest/5 hover:bg-forest/10"
+                            onClick={() => {
+                              setPreviewListing(l);
+                              setSelectedPhotoIndex(0);
+                            }}
+                          >
+                            <Eye className="size-3.5 mr-1" /> İncele
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-9 px-3 text-xs font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border-amber-300"
+                            onClick={() => handleOpenRevision(l)}
+                          >
+                            <Edit3 className="size-3.5 mr-1" /> Revize
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-9 px-3 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border-rose-300"
+                            onClick={() => handleOpenReject(l)}
+                          >
+                            <XCircle className="size-3.5 mr-1" /> Kaldır
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-9 px-2.5 text-rose-600 hover:text-rose-700 hover:bg-rose-50 border border-rose-200/60 rounded-xl"
+                            onClick={() => handleOpenDelete(l.id, l.title)}
+                            title="İlanı Sil"
+                          >
+                            <Trash2 className="size-3.5" />
+                          </Button>
+                        </div>
+                      ) : l.status === "rejected" ? (
+                        <div className="flex items-center gap-1.5">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1 h-9 text-xs font-semibold text-forest border-forest/30 bg-forest/5"
+                            onClick={() => {
+                              setPreviewListing(l);
+                              setSelectedPhotoIndex(0);
+                            }}
+                          >
+                            <Eye className="size-3.5 mr-1" /> İncele
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1 h-9 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border-emerald-300"
+                            onClick={() => handleApprove(l.id, l.title)}
+                          >
+                            <RotateCcw className="size-3.5 mr-1" /> Yayına Al
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-9 px-2.5 text-rose-600 hover:text-rose-700 hover:bg-rose-50 border border-rose-200/60 rounded-xl"
+                            onClick={() => handleOpenDelete(l.id, l.title)}
+                            title="İlanı Sil"
+                          >
+                            <Trash2 className="size-3.5" />
+                          </Button>
+                        </div>
                       ) : (
-                        <StatusChip tone="bad">Reddedildi</StatusChip>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="w-full h-9 text-xs font-semibold text-forest border-forest/30 bg-forest/5"
+                          onClick={() => {
+                            setPreviewListing(l);
+                            setSelectedPhotoIndex(0);
+                          }}
+                        >
+                          <Eye className="size-3.5 mr-1" /> İncele
+                        </Button>
                       )}
-                    </div>
-
-                    <div className="pt-2 border-t border-line/60 flex flex-wrap items-center gap-1.5">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="flex-1 h-8 text-xs font-semibold text-forest border-forest/30 bg-forest/5"
-                        onClick={() => {
-                          setPreviewListing(l);
-                          setSelectedPhotoIndex(0);
-                        }}
-                      >
-                        <Eye className="size-3 mr-1" /> İncele
-                      </Button>
-
-                      <Button
-                        size="sm"
-                        className="bg-forest hover:bg-forest/90 text-white text-xs h-8 px-2.5 font-semibold"
-                        onClick={() => handleApprove(l.id, l.title)}
-                      >
-                        <Check className="size-3 mr-1" /> Onayla
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-amber-800 bg-amber-50 hover:bg-amber-100 border-amber-300 text-xs h-8 px-2 font-semibold"
-                        onClick={() => handleOpenRevision(l)}
-                      >
-                        <Edit3 className="size-3 mr-1" /> Revize
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-rose-700 bg-rose-50 hover:bg-rose-100 border-rose-300 text-xs h-8 px-2 font-semibold"
-                        onClick={() => handleOpenReject(l)}
-                      >
-                        <XCircle className="size-3 mr-1" /> Reddet
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 h-8 px-2 text-xs"
-                        onClick={() => handleOpenDelete(l.id, l.title)}
-                        title="İlanı Sil"
-                      >
-                        <Trash2 className="size-3.5" />
-                      </Button>
                     </div>
                   </div>
                 );
@@ -1324,27 +1455,50 @@ export function ListingsPage() {
                                   <XCircle className="size-3.5 mr-1" /> Reddet
                                 </Button>
                               </>
-                            ) : (
+                            ) : l.status === "approved" || l.status === "yayinda" ? (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-amber-800 bg-amber-50 hover:bg-amber-100 border-amber-300"
+                                  onClick={() => handleOpenRevision(l)}
+                                  title="Kullanıcıdan Düzenleme İste"
+                                >
+                                  <Edit3 className="size-3.5 mr-1" /> Düzenleme İste
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-rose-700 hover:bg-rose-50 border-rose-300"
+                                  onClick={() => handleOpenReject(l)}
+                                  title="İlanı Reddet / Yayından Kaldır"
+                                >
+                                  <XCircle className="size-3.5 mr-1" /> Reddet
+                                </Button>
+                              </>
+                            ) : l.status === "rejected" ? (
                               <Button
                                 size="sm"
                                 variant="outline"
-                                className="text-rose-700 hover:bg-rose-50 border-rose-300"
-                                onClick={() => handleOpenReject(l)}
-                                title="İlanı Reddet / Yayından Kaldır"
+                                className="text-emerald-700 hover:bg-emerald-50 border-emerald-300"
+                                onClick={() => handleApprove(l.id, l.title)}
+                                title="İlanı Tekrar Yayına Al"
                               >
-                                <XCircle className="size-3.5 mr-1" /> Reddet
+                                <RotateCcw className="size-3.5 mr-1" /> Yayına Al
+                              </Button>
+                            ) : null}
+
+                            {l.status !== "completed" && l.status !== "takaslandi" && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-muted hover:text-rose-600"
+                                onClick={() => handleOpenDelete(l.id, l.title)}
+                                title="İlanı Kalıcı Sil"
+                              >
+                                <Trash2 className="size-4" />
                               </Button>
                             )}
-
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="text-muted hover:text-rose-600"
-                              onClick={() => handleOpenDelete(l.id, l.title)}
-                              title="İlanı Kalıcı Sil"
-                            >
-                              <Trash2 className="size-4" />
-                            </Button>
                           </div>
                         </td>
                       </tr>
@@ -1546,6 +1700,13 @@ export function ListingsPage() {
                   </>
                 ) : previewListing.status === "approved" || previewListing.status === "yayinda" ? (
                   <>
+                    <Button
+                      variant="outline"
+                      className="text-rose-700 hover:bg-rose-50 border-rose-300"
+                      onClick={() => handleOpenReject(previewListing)}
+                    >
+                      <XCircle className="size-4 mr-1" /> Yayından Kaldır
+                    </Button>
                     <Button
                       variant="outline"
                       className="text-amber-800 bg-amber-50 hover:bg-amber-100 border-amber-300"
@@ -2043,64 +2204,96 @@ export function ReportsPage() {
   return (
     <AdminShell compact kicker="Moderasyon ve Güvenlik" title="Şikayet ve Bildirimler">
       <div className="grid gap-5">
-        {/* Filtreleme Sekmeleri */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant={activeTab === "all" ? "dark" : "outline"}
-              size="sm"
+        {/* Filtreleme Sekmeleri (Mobilde yatay kaydırılabilir, tek satır) */}
+        <div className="w-full min-w-0 space-y-3">
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 -mx-1 px-1 sm:flex-wrap">
+            <button
+              type="button"
               onClick={() => setActiveTab("all")}
+              className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                activeTab === "all"
+                  ? "bg-forest text-white shadow-xs"
+                  : "bg-card text-ink/80 hover:bg-shell border border-line"
+              }`}
             >
-              Tümü ({moderationReports.length})
-            </Button>
-            <Button
-              variant={activeTab === "acik" ? "dark" : "outline"}
-              size="sm"
+              <span>Tümü</span>
+              <span className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${activeTab === "all" ? "bg-white/20 text-white" : "bg-shell text-muted"}`}>
+                {moderationReports.length}
+              </span>
+            </button>
+            <button
+              type="button"
               onClick={() => setActiveTab("acik")}
-              className={openCount > 0 ? "border-rose-400 bg-rose-50/70 text-rose-900 hover:bg-rose-100" : ""}
+              className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                activeTab === "acik"
+                  ? "bg-forest text-white shadow-xs"
+                  : openCount > 0
+                    ? "bg-rose-50 text-rose-900 border border-rose-300 hover:bg-rose-100"
+                    : "bg-card text-ink/80 hover:bg-shell border border-line"
+              }`}
             >
-              Açık Şikayetler ({openCount})
-              {openCount > 0 && (
-                <span className="ml-1.5 rounded-full bg-rose-600 px-1.5 py-0.2 text-[10px] font-bold text-white">
-                  {openCount}
-                </span>
-              )}
-            </Button>
-            <Button
-              variant={activeTab === "cozuldu" ? "dark" : "outline"}
-              size="sm"
+              <span>Açık Şikayetler</span>
+              <span className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${activeTab === "acik" ? "bg-white/20 text-white" : openCount > 0 ? "bg-rose-600 text-white" : "bg-shell text-muted"}`}>
+                {openCount}
+              </span>
+            </button>
+            <button
+              type="button"
               onClick={() => setActiveTab("cozuldu")}
+              className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                activeTab === "cozuldu"
+                  ? "bg-forest text-white shadow-xs"
+                  : "bg-card text-ink/80 hover:bg-shell border border-line"
+              }`}
             >
-              Çözüldü ({resolvedCount})
-            </Button>
-            <Button
-              variant={activeTab === "reddedildi" ? "dark" : "outline"}
-              size="sm"
+              <span>Çözüldü</span>
+              <span className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${activeTab === "cozuldu" ? "bg-white/20 text-white" : "bg-shell text-muted"}`}>
+                {resolvedCount}
+              </span>
+            </button>
+            <button
+              type="button"
               onClick={() => setActiveTab("reddedildi")}
+              className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                activeTab === "reddedildi"
+                  ? "bg-forest text-white shadow-xs"
+                  : "bg-card text-ink/80 hover:bg-shell border border-line"
+              }`}
             >
-              Kapatıldı ({dismissedCount})
-            </Button>
+              <span>Kapatıldı</span>
+              <span className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${activeTab === "reddedildi" ? "bg-white/20 text-white" : "bg-shell text-muted"}`}>
+                {dismissedCount}
+              </span>
+            </button>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <select
-              value={filterType}
-              onChange={(e) => setFilterType(e.target.value as any)}
-              className="h-9 rounded-full border border-line bg-card px-3 text-xs font-medium text-ink outline-none"
-            >
-              <option value="all">Tüm Şikayet Tipleri</option>
-              <option value="message">Mesaj Şikayetleri</option>
-              <option value="user">Kullanıcı Şikayetleri</option>
-              <option value="listing">İlan Şikayetleri</option>
-            </select>
+          {/* Tip Seçici ve Arama Alanı (Mobilde düzgün istiflenir) */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            <div className="w-full sm:w-auto shrink-0">
+              <select
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value as any)}
+                className="w-full sm:w-auto h-11 rounded-full border border-line bg-card px-4 text-xs font-semibold text-ink outline-none shadow-xs"
+              >
+                <option value="all">Tüm Şikayet Tipleri</option>
+                <option value="message">Mesaj Şikayetleri</option>
+                <option value="user">Kullanıcı Şikayetleri</option>
+                <option value="listing">İlan Şikayetleri</option>
+              </select>
+            </div>
+            <div className="flex-1 min-w-0">
+              <label className="flex h-11 items-center gap-2.5 rounded-full bg-card px-4 ring-1 ring-line shadow-xs">
+                <Search className="size-4 text-muted shrink-0" />
+                <input
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  placeholder="Şikayet, kullanıcı veya hedef ara..."
+                  className="h-full w-full bg-transparent text-xs sm:text-sm text-ink outline-none placeholder:text-muted"
+                />
+              </label>
+            </div>
           </div>
         </div>
-
-        <Toolbar
-          value={q}
-          onChange={setQ}
-          placeholder="Şikayet konusu, bildiren kullanıcı veya hedef ara..."
-        />
 
         {/* Moderasyon Kartları Listesi */}
         {rows.length === 0 ? (
@@ -2119,26 +2312,26 @@ export function ReportsPage() {
               return (
                 <div
                   key={r.id}
-                  className="rounded-2xl border border-line bg-card p-4 sm:p-5 shadow-xs transition-all hover:border-forest/30 flex flex-col gap-4"
+                  className="rounded-2xl border border-line bg-card p-3.5 sm:p-5 shadow-xs transition-all hover:border-forest/30 flex flex-col gap-3 min-w-0 w-full overflow-hidden"
                 >
                   {/* HEADER: Rozetler, Tarih & Sebep */}
-                  <div className="flex flex-col gap-2 pb-3 border-b border-line/60">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-col gap-2 pb-2.5 border-b border-line/60 min-w-0">
+                    <div className="flex flex-wrap items-center justify-between gap-1.5 min-w-0">
                       {/* Şikayet Türü ve Durum Rozeti */}
-                      <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-1.5 min-w-0">
                         {r.rawType === "message" ? (
-                          <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700 border border-indigo-200/60">
-                            <MessageSquare className="size-3.5" />
+                          <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-semibold text-indigo-700 border border-indigo-200/60">
+                            <MessageSquare className="size-3" />
                             Mesaj Şikayeti
                           </span>
                         ) : r.rawType === "user" ? (
-                          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800 border border-amber-200/60">
-                            <UserIcon className="size-3.5" />
+                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-800 border border-amber-200/60">
+                            <UserIcon className="size-3" />
                             Kullanıcı Şikayeti
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 border border-blue-200/60">
-                            <Package className="size-3.5" />
+                          <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700 border border-blue-200/60">
+                            <Package className="size-3" />
                             İlan Şikayeti
                           </span>
                         )}
@@ -2155,49 +2348,40 @@ export function ReportsPage() {
                       </div>
 
                       {/* Tarih ve Saat */}
-                      <div className="flex items-center gap-1.5 text-xs text-muted">
-                        <Clock className="size-3.5 text-muted/70" />
+                      <div className="flex items-center gap-1 text-[11px] text-muted whitespace-nowrap">
+                        <Clock className="size-3 text-muted/70 shrink-0" />
                         <span>{formatReportDate(r.created)}</span>
                       </div>
                     </div>
 
                     {/* Şikayet Nedeni */}
-                    <div className="flex items-center gap-2 pt-1 text-sm font-semibold text-ink">
-                      <AlertCircle className="size-4 shrink-0 text-amber-600" />
-                      <span>
-                        Sebep: <span className="text-forest font-bold">{r.subject}</span>
-                      </span>
+                    <div className="flex items-start gap-1.5 pt-0.5 text-xs sm:text-sm font-semibold text-ink min-w-0">
+                      <AlertCircle className="size-4 shrink-0 text-amber-600 mt-0.5" />
+                      <div className="min-w-0 break-words leading-tight">
+                        <span className="text-muted font-medium">Sebep: </span>
+                        <span className="text-forest font-bold">{r.subject}</span>
+                      </div>
                     </div>
                   </div>
 
                   {/* A) BİLDİREN VE BİLDİRİLEN KULLANICILAR */}
-                  <div className="flex flex-wrap items-center gap-3 text-xs">
+                  <div className="flex flex-wrap items-center gap-2 text-xs min-w-0">
                     {/* Bildiren Kullanıcı */}
-                    <div className="flex items-center gap-1.5 text-muted">
-                      <span className="font-medium text-ink/70">Bildiren:</span>
-                      <div className="flex items-center gap-1.5 rounded-lg bg-shell/70 px-2.5 py-1 font-medium text-ink border border-line/60">
-                        <UserIcon className="size-3.5 text-muted" />
-                        <span className="font-semibold">{r.reporter}</span>
-                        {r.reporterId && (
-                          <span className="text-[10.5px] text-muted font-mono">
-                            ({r.reporterId.slice(0, 8)}...)
-                          </span>
-                        )}
+                    <div className="flex items-center gap-1.5 text-muted min-w-0">
+                      <span className="font-medium text-ink/70 shrink-0">Bildiren:</span>
+                      <div className="flex items-center gap-1 rounded-lg bg-shell/70 px-2.5 py-1 font-medium text-ink border border-line/60 truncate max-w-[220px]">
+                        <UserIcon className="size-3 text-muted shrink-0" />
+                        <span className="font-semibold truncate">{r.reporter}</span>
                       </div>
                     </div>
 
                     {/* Bildirilen Kullanıcı */}
                     {(r.reportedUserName || r.rawType === "user") && (
-                      <div className="flex items-center gap-1.5 text-muted">
-                        <span className="font-medium text-rose-800">Bildirilen:</span>
-                        <div className="flex items-center gap-1.5 rounded-lg bg-rose-50 px-2.5 py-1 font-medium text-rose-950 border border-rose-200/80">
-                          <UserIcon className="size-3.5 text-rose-600" />
-                          <span className="font-bold">{r.reportedUserName || r.target}</span>
-                          {r.reportedUserId && (
-                            <span className="text-[10.5px] text-rose-800 font-mono">
-                              ({r.reportedUserId.slice(0, 8)}...)
-                            </span>
-                          )}
+                      <div className="flex items-center gap-1.5 text-muted min-w-0">
+                        <span className="font-medium text-rose-800 shrink-0">Bildirilen:</span>
+                        <div className="flex items-center gap-1 rounded-lg bg-rose-50 px-2.5 py-1 font-medium text-rose-950 border border-rose-200/80 truncate max-w-[220px]">
+                          <UserIcon className="size-3 text-rose-600 shrink-0" />
+                          <span className="font-bold truncate">{r.reportedUserName || r.target}</span>
                         </div>
                       </div>
                     )}
@@ -2205,95 +2389,94 @@ export function ReportsPage() {
 
                   {/* B) BİLDİRİLEN İÇERİK (Type-Aware) */}
                   {r.rawType === "message" ? (
-                    <div className="rounded-xl border border-line/80 bg-shell/40 p-3.5">
-                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-indigo-900 mb-1.5">
+                    <div className="rounded-xl border border-line/80 bg-shell/40 p-3 min-w-0">
+                      <div className="flex flex-wrap items-center justify-between gap-1 text-xs font-semibold text-indigo-900 mb-1.5">
                         <div className="flex items-center gap-1.5">
-                          <MessageSquare className="size-3.5 text-indigo-600" />
+                          <MessageSquare className="size-3.5 text-indigo-600 shrink-0" />
                           <span>Bildirilen Mesaj</span>
                         </div>
                         {r.reportedUserName && (
-                          <span className="text-muted text-[11px] font-normal">
+                          <span className="text-muted text-[11px] font-normal truncate">
                             Mesaj Sahibi: <strong className="text-ink font-semibold">{r.reportedUserName}</strong>
                           </span>
                         )}
                       </div>
-                      <div className="rounded-lg bg-card p-3 border border-line/70 shadow-2xs">
-                        <p className="text-sm italic text-ink/90 font-sans leading-relaxed">
+                      <div className="rounded-lg bg-card p-2.5 border border-line/70 shadow-2xs min-w-0">
+                        <p className="text-xs sm:text-sm italic text-ink/90 font-sans leading-relaxed break-words">
                           &ldquo;{r.target}&rdquo;
                         </p>
                       </div>
                     </div>
                   ) : r.rawType === "user" ? (
-                    <div className="rounded-xl border border-line/80 bg-shell/40 p-3.5">
-                      <div className="flex items-center justify-between text-xs font-semibold text-amber-900 mb-1.5">
+                    <div className="rounded-xl border border-line/80 bg-shell/40 p-3 min-w-0">
+                      <div className="flex items-center justify-between gap-2 text-xs font-semibold text-amber-900 mb-1.5">
                         <div className="flex items-center gap-1.5">
-                          <UserIcon className="size-3.5 text-amber-600" />
+                          <UserIcon className="size-3.5 text-amber-600 shrink-0" />
                           <span>Bildirilen Kullanıcı</span>
                         </div>
                         {targetUser && (
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-7 text-xs px-2.5 gap-1.5 text-forest font-semibold"
+                            className="h-7 text-xs px-2 gap-1 text-forest font-semibold shrink-0"
                             onClick={() => setInspectUser(targetUser)}
                           >
                             <Eye className="size-3.5" />
-                            Kullanıcıyı İncele
+                            İncele
                           </Button>
                         )}
                       </div>
-                      <div className="rounded-lg bg-card p-3 border border-line/70 flex items-center gap-3">
-                        <div className="size-9 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center font-bold text-xs shrink-0">
+                      <div className="rounded-lg bg-card p-2.5 border border-line/70 flex items-center gap-2.5 min-w-0">
+                        <div className="size-8 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center font-bold text-xs shrink-0">
                           {r.target.slice(0, 1).toUpperCase()}
                         </div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-ink truncate">{r.target}</p>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs sm:text-sm font-semibold text-ink truncate">{r.target}</p>
                           {targetUser ? (
-                            <p className="text-xs text-muted">
-                              {targetUser.city} · {targetUser.phone || "Telefon yok"}
+                            <p className="text-[11px] text-muted truncate">
+                              {targetUser.city}
                             </p>
                           ) : r.targetId ? (
-                            <p className="text-xs text-muted font-mono truncate">ID: {r.targetId}</p>
+                            <p className="text-[11px] text-muted font-mono truncate">ID: {r.targetId.slice(0, 8)}...{r.targetId.slice(-4)}</p>
                           ) : null}
                         </div>
                       </div>
                     </div>
                   ) : (
                     /* listing */
-                    <div className="rounded-xl border border-line/80 bg-shell/40 p-3.5">
-                      <div className="flex items-center justify-between text-xs font-semibold text-blue-900 mb-1.5">
-                        <div className="flex items-center gap-1.5">
-                          <Package className="size-3.5 text-blue-600" />
-                          <span>Bildirilen İlan</span>
+                    <div className="rounded-xl border border-line/80 bg-shell/40 p-3 min-w-0">
+                      <div className="flex items-center justify-between gap-2 text-xs font-semibold text-blue-900 mb-1.5">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <Package className="size-3.5 text-blue-600 shrink-0" />
+                          <span className="truncate">Bildirilen İlan</span>
                         </div>
-                        {/* Sadece burada İlanı İncele */}
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-7 text-xs px-2.5 gap-1.5 text-forest font-semibold"
+                          className="h-7 text-xs px-2 gap-1 text-forest font-semibold shrink-0 hover:bg-forest/10"
                           onClick={() => handleInspectListing(r)}
                         >
                           <Eye className="size-3.5" />
                           İlanı İncele
                         </Button>
                       </div>
-                      <div className="rounded-lg bg-card p-3 border border-line/70 flex items-center justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-ink truncate">{r.target}</p>
-                          {r.targetId && (
-                            <p className="text-xs text-muted font-mono truncate">İlan ID: {r.targetId}</p>
-                          )}
-                        </div>
+                      <div className="rounded-lg bg-card p-2.5 border border-line/70 min-w-0">
+                        <p className="text-xs sm:text-sm font-bold text-ink truncate">{r.target}</p>
+                        {r.targetId && (
+                          <p className="text-[11px] text-muted font-mono truncate mt-0.5">
+                            İlan ID: {r.targetId.slice(0, 8)}...{r.targetId.slice(-4)}
+                          </p>
+                        )}
                       </div>
                     </div>
                   )}
 
                   {/* C) KULLANICININ NOTU */}
-                  <div className="rounded-xl border border-line/70 bg-card p-3.5">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted block mb-1">
+                  <div className="rounded-xl border border-line/70 bg-card p-3 min-w-0">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted block mb-1">
                       Kullanıcının Notu
                     </span>
-                    <p className="text-xs sm:text-sm text-ink leading-relaxed whitespace-pre-wrap">
+                    <p className="text-xs sm:text-sm text-ink leading-relaxed whitespace-pre-wrap break-words">
                       {(r.cleanDetail || r.detail || "").trim() || (
                         <span className="italic text-muted text-xs">Kullanıcı ek bir açıklama girmedi.</span>
                       )}
@@ -2301,7 +2484,7 @@ export function ReportsPage() {
                   </div>
 
                   {/* D) TEKNİK DETAYLAR (Collapsible / Accordion) */}
-                  <div className="border-t border-line/60 pt-2.5">
+                  <div className="border-t border-line/60 pt-2 min-w-0">
                     <button
                       type="button"
                       onClick={() => setExpandedTech((prev) => ({ ...prev, [r.id]: !prev[r.id] }))}
@@ -2312,47 +2495,27 @@ export function ReportsPage() {
                     </button>
 
                     {isTechExpanded && (
-                      <div className="mt-2.5 grid grid-cols-1 sm:grid-cols-2 gap-2 rounded-xl bg-shell/50 p-2.5 border border-line/60 text-xs">
-                        {r.rawType === "message" && (
-                          <>
-                            {r.targetId && (
-                              <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-card border border-line/40">
-                                <div className="min-w-0">
-                                  <span className="text-[10px] uppercase font-bold text-muted block">Mesaj ID</span>
-                                  <span className="font-mono text-[11px] text-ink truncate block">{r.targetId}</span>
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() => copyToClipboard(r.targetId!, "Mesaj ID")}
-                                  className="p-1 hover:bg-shell rounded text-muted hover:text-ink shrink-0"
-                                  title="Kopyala"
-                                >
-                                  <Copy className="size-3.5" />
-                                </button>
-                              </div>
-                            )}
-                            {r.conversationId && (
-                              <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-card border border-line/40">
-                                <div className="min-w-0">
-                                  <span className="text-[10px] uppercase font-bold text-muted block">Konuşma ID</span>
-                                  <span className="font-mono text-[11px] text-ink truncate block">{r.conversationId}</span>
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() => copyToClipboard(r.conversationId!, "Konuşma ID")}
-                                  className="p-1 hover:bg-shell rounded text-muted hover:text-ink shrink-0"
-                                  title="Kopyala"
-                                >
-                                  <Copy className="size-3.5" />
-                                </button>
-                              </div>
-                            )}
-                          </>
+                      <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2 rounded-xl bg-shell/50 p-2.5 border border-line/60 text-xs min-w-0">
+                        {r.rawType === "message" && r.targetId && (
+                          <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-card border border-line/40 min-w-0">
+                            <div className="min-w-0 flex-1">
+                              <span className="text-[10px] uppercase font-bold text-muted block">Mesaj ID</span>
+                              <span className="font-mono text-[11px] text-ink truncate block">{r.targetId}</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => copyToClipboard(r.targetId!, "Mesaj ID")}
+                              className="p-1 hover:bg-shell rounded text-muted hover:text-ink shrink-0"
+                              title="Kopyala"
+                            >
+                              <Copy className="size-3.5" />
+                            </button>
+                          </div>
                         )}
 
                         {r.rawType === "listing" && r.targetId && (
-                          <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-card border border-line/40">
-                            <div className="min-w-0">
+                          <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-card border border-line/40 min-w-0">
+                            <div className="min-w-0 flex-1">
                               <span className="text-[10px] uppercase font-bold text-muted block">İlan ID</span>
                               <span className="font-mono text-[11px] text-ink truncate block">{r.targetId}</span>
                             </div>
@@ -2368,8 +2531,8 @@ export function ReportsPage() {
                         )}
 
                         {r.rawType === "user" && r.targetId && (
-                          <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-card border border-line/40">
-                            <div className="min-w-0">
+                          <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-card border border-line/40 min-w-0">
+                            <div className="min-w-0 flex-1">
                               <span className="text-[10px] uppercase font-bold text-muted block">Kullanıcı ID</span>
                               <span className="font-mono text-[11px] text-ink truncate block">{r.targetId}</span>
                             </div>
@@ -2385,8 +2548,8 @@ export function ReportsPage() {
                         )}
 
                         {/* Rapor ID */}
-                        <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-card border border-line/40">
-                          <div className="min-w-0">
+                        <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-card border border-line/40 min-w-0">
+                          <div className="min-w-0 flex-1">
                             <span className="text-[10px] uppercase font-bold text-muted block">Rapor ID</span>
                             <span className="font-mono text-[11px] text-ink truncate block">{r.id}</span>
                           </div>
@@ -2399,55 +2562,20 @@ export function ReportsPage() {
                             <Copy className="size-3.5" />
                           </button>
                         </div>
-
-                        {/* Bildiren ID */}
-                        {r.reporterId && (
-                          <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-card border border-line/40">
-                            <div className="min-w-0">
-                              <span className="text-[10px] uppercase font-bold text-muted block">Bildiren ID</span>
-                              <span className="font-mono text-[11px] text-ink truncate block">{r.reporterId}</span>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => copyToClipboard(r.reporterId!, "Bildiren ID")}
-                              className="p-1 hover:bg-shell rounded text-muted hover:text-ink shrink-0"
-                              title="Kopyala"
-                            >
-                              <Copy className="size-3.5" />
-                            </button>
-                          </div>
-                        )}
-
-                        {/* Bildirilen Kullanıcı ID */}
-                        {r.reportedUserId && (
-                          <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-card border border-line/40">
-                            <div className="min-w-0">
-                              <span className="text-[10px] uppercase font-bold text-muted block">Bildirilen Kullanıcı ID</span>
-                              <span className="font-mono text-[11px] text-ink truncate block">{r.reportedUserId}</span>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => copyToClipboard(r.reportedUserId!, "Bildirilen Kullanıcı ID")}
-                              className="p-1 hover:bg-shell rounded text-muted hover:text-ink shrink-0"
-                              title="Kopyala"
-                            >
-                              <Copy className="size-3.5" />
-                            </button>
-                          </div>
-                        )}
                       </div>
                     )}
                   </div>
 
                   {/* 5. TYPE-AWARE AKSİYONLAR */}
-                  <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-line/60">
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-line/60 min-w-0">
                     {r.status === "acik" || r.status === "inceleniyor" ? (
                       <>
                         {r.rawType === "message" ? (
-                          <>
+                          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                             <Button
                               variant="outline"
                               size="sm"
+                              className="flex-1 sm:flex-none h-8 text-xs font-semibold"
                               onClick={() => openActionModal(r, "dismiss")}
                             >
                               İhlal Yok / Kapat
@@ -2455,16 +2583,18 @@ export function ReportsPage() {
                             <Button
                               variant="dark"
                               size="sm"
+                              className="flex-1 sm:flex-none h-8 text-xs font-semibold"
                               onClick={() => openActionModal(r, "resolve_violation")}
                             >
                               İhlal Var / Çöz
                             </Button>
-                          </>
+                          </div>
                         ) : r.rawType === "user" ? (
-                          <>
+                          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                             <Button
                               variant="outline"
                               size="sm"
+                              className="flex-1 sm:flex-none h-8 text-xs font-semibold"
                               onClick={() => openActionModal(r, "dismiss")}
                             >
                               İhlal Yok / Kapat
@@ -2472,24 +2602,27 @@ export function ReportsPage() {
                             <Button
                               variant="dark"
                               size="sm"
+                              className="flex-1 sm:flex-none h-8 text-xs font-semibold"
                               onClick={() => openActionModal(r, "resolve_violation")}
                             >
                               İhlal Var / Çöz
                             </Button>
-                          </>
+                          </div>
                         ) : (
                           /* listing */
-                          <>
+                          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                             <Button
                               variant="ghost"
                               size="sm"
+                              className="h-8 text-xs text-forest font-semibold"
                               onClick={() => handleInspectListing(r)}
                             >
-                              İlanı İncele
+                              <Eye className="size-3.5 mr-1" /> İncele
                             </Button>
                             <Button
                               variant="outline"
                               size="sm"
+                              className="flex-1 sm:flex-none h-8 text-xs font-semibold"
                               onClick={() => openActionModal(r, "dismiss")}
                             >
                               İhlal Yok / Kapat
@@ -2497,18 +2630,19 @@ export function ReportsPage() {
                             <Button
                               variant="destructive"
                               size="sm"
+                              className="flex-1 sm:flex-none h-8 text-xs font-semibold"
                               onClick={() => openActionModal(r, "delete_listing")}
                             >
                               İlanı Kaldır & Çöz
                             </Button>
-                          </>
+                          </div>
                         )}
                       </>
                     ) : (
-                      <span className="text-xs text-muted flex items-center gap-1.5 py-1">
-                        <CheckCircle2 className="size-4 text-emerald-600" />
-                        Dosya {r.status === "cozuldu" ? "çözümlendi" : "kapatıldı"}.
-                      </span>
+                      <div className="flex items-center gap-1.5 text-xs text-muted font-medium py-1">
+                        <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />
+                        <span>Dosya {r.status === "cozuldu" ? "çözümlendi" : "kapatıldı"}.</span>
+                      </div>
                     )}
                   </div>
                 </div>

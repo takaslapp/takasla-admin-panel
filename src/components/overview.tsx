@@ -107,7 +107,7 @@ export function OverviewPage() {
             </Button>
           }
         >
-          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
             <StatCard
               icon={Users}
               value={users.length}
@@ -123,14 +123,6 @@ export function OverviewPage() {
               sublabel={`${activeListings.length} yayında${pendingListings.length > 0 ? ` · ${pendingListings.length} onay bekliyor` : ""}`}
               tone={pendingListings.length > 0 ? "warn" : "default"}
               to="/ilanlar"
-            />
-            <StatCard
-              icon={Repeat}
-              value={swapStats.totalOffers}
-              label="Takas Teklifi"
-              sublabel={`${swapStats.acceptedOffers} kabul edildi`}
-              tone="default"
-              to="/analitik"
             />
             <StatCard
               icon={ShieldAlert}
@@ -310,8 +302,8 @@ export function OverviewPage() {
                       />
                       <div>
                         <p className="font-semibold text-ink leading-tight">{u.name}</p>
-                        <p className="text-xs text-muted">
-                          {u.username} · {u.phone}
+                        <p className="text-xs text-muted font-mono">
+                          {u.username}
                         </p>
                       </div>
                     </div>
