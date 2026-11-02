@@ -274,9 +274,15 @@ export function ListingsPage() {
     fetchDashboardData();
   }, [fetchDashboardData]);
 
-  // Sayılar
+  // Sayılar (tamamlanan ve silinenler normal tekil listeden hariç tutulur)
   const uncompletedListings = useMemo(
-    () => listings.filter((l) => l.status !== "completed" && l.status !== "takaslandi"),
+    () =>
+      listings.filter(
+        (l) =>
+          l.status !== "completed" &&
+          l.status !== "takaslandi" &&
+          l.status !== "deleted"
+      ),
     [listings]
   );
   const pendingCount = useMemo(() => listings.filter((l) => l.status === "pending").length, [listings]);

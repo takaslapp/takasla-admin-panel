@@ -220,8 +220,8 @@ export function OverviewPage() {
                           <p className="font-semibold text-sm text-ink truncate">{l.title}</p>
                           <p className="text-xs text-muted mt-0.5">{l.city} · {l.category}</p>
                         </div>
-                        <StatusChip tone={l.status === "pending" ? "warn" : l.status === "revision_requested" ? "warn" : l.status === "approved" || l.status === "yayinda" ? "ok" : "bad"}>
-                          {l.status === "pending" ? "Onay Bekliyor" : l.status === "revision_requested" ? "Revize İstendi" : l.status === "approved" || l.status === "yayinda" ? "Yayında" : "Reddedildi"}
+                        <StatusChip tone={l.status === "pending" ? "warn" : l.status === "revision_requested" ? "warn" : l.status === "approved" || l.status === "yayinda" ? "ok" : l.status === "deleted" ? "mute" : "bad"}>
+                          {l.status === "pending" ? "Onay Bekliyor" : l.status === "revision_requested" ? "Revize İstendi" : l.status === "approved" || l.status === "yayinda" ? "Yayında" : l.status === "deleted" ? "Silindi" : "Reddedildi"}
                         </StatusChip>
                       </div>
                       <p className="text-xs text-muted border-t border-line/50 pt-1.5 flex items-center justify-between">
@@ -259,6 +259,8 @@ export function OverviewPage() {
                               <StatusChip tone="warn">Revize İstendi</StatusChip>
                             ) : l.status === "approved" || l.status === "yayinda" ? (
                               <StatusChip tone="ok">Yayında</StatusChip>
+                            ) : l.status === "deleted" ? (
+                              <StatusChip tone="mute">Silindi</StatusChip>
                             ) : (
                               <StatusChip tone="bad">Reddedildi</StatusChip>
                             )}

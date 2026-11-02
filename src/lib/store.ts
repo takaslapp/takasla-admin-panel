@@ -84,12 +84,19 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
         offerMap.set(off.id, off);
       }
 
-      // Her kullanıcının gerçek ilan sayısını hesapla
+      // Her kullanıcının gerçek ilan sayısını hesapla (tamamlanan ve silinenler hariç)
       const userListingCounts = new Map<string, number>();
       const userMap = new Map<string, { name: string; phone: string }>();
 
       for (const l of rawListings) {
-        if (l.user_id && l.status !== "completed" && l.status !== "takaslandi") {
+        if (
+          l.user_id &&
+          l.status !== "completed" &&
+          l.status !== "takaslandi" &&
+          l.status !== "deleted" &&
+          l.status !== "silindi" &&
+          !l.deleted_at
+        ) {
           const currentCount = userListingCounts.get(l.user_id) || 0;
           userListingCounts.set(l.user_id, currentCount + 1);
         }
@@ -132,10 +139,14 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
         });
       }
 
-      // İlan listesi
+      // İlan listesi (silinmiş ilanlar normal/aktif ilan listelerine dahil edilmez, DB'de geçmiş için tutulur)
+      const visibleRawListings = rawListings.filter(
+        (l) => l.status !== "deleted" && l.status !== "silindi" && !l.deleted_at
+      );
+
       let listingsList: Listing[] = [];
-      if (rawListings.length > 0) {
-        listingsList = rawListings.map((l) => {
+      if (visibleRawListings.length > 0) {
+        listingsList = visibleRawListings.map((l) => {
           const ownerInfo = userMap.get(l.user_id) || { name: "Kullanıcı", phone: "Belirtilmemiş" };
           const dt = l.created_at ? new Date(l.created_at) : new Date();
           const createdFormatted = `${dt.toLocaleDateString("tr-TR")} ${dt.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}`;
@@ -549,19 +560,24 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
   deleteListing: async (id: string) => {
     const listing = get().listings.find((l) => l.id === id);
     if (listing?.status === "completed" || listing?.status === "takaslandi") {
-      console.warn("Tamamlanmış takas ilanı silinemez:", id);
-      return;
+      throw new Error("Tamamlanmış takas ilanları geçmiş kaydı olarak korunur ve silinemez.");
     }
-    set((s) => ({
-      listings: s.listings.filter((l) => l.id !== id),
-    }));
+
     try {
       await supabase.from("favorites").delete().eq("listing_id", id);
       await supabase.from("listing_images").delete().eq("listing_id", id);
-      await supabase.from("listings").delete().eq("id", id);
-    } catch (e) {
-      console.error("deleteListing hatası:", e);
+    } catch (_) {}
+
+    const { error: delError } = await supabase.from("listings").delete().eq("id", id);
+    if (delError) {
+      console.error("deleteListing hatası:", delError);
+      throw new Error(delError.message || "İlan veritabanından silinemedi.");
     }
+
+    // Yalnızca başarılı silme işlemi sonrasında store'dan kaldır
+    set((s) => ({
+      listings: s.listings.filter((l) => l.id !== id),
+    }));
   },
 
   deleteMultipleListings: async (ids: string[]) => {
@@ -569,18 +585,26 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
       const l = get().listings.find((item) => item.id === id);
       return l?.status !== "completed" && l?.status !== "takaslandi";
     });
-    if (safeIds.length === 0) return;
+    if (safeIds.length === 0) {
+      throw new Error("Seçilen ilanlar arasında silinebilir ilan bulunmuyor.");
+    }
+
+    try {
+      await supabase.from("favorites").delete().in("listing_id", safeIds);
+      await supabase.from("listing_images").delete().in("listing_id", safeIds);
+    } catch (_) {}
+
+    const { error: delError } = await supabase.from("listings").delete().in("id", safeIds);
+    if (delError) {
+      console.error("deleteMultipleListings hatası:", delError);
+      throw new Error(delError.message || "İlanlar veritabanından silinemedi.");
+    }
+
+    // Yalnızca başarılı DELETE işleminden sonra store'dan kaldır
     const idSet = new Set(safeIds);
     set((s) => ({
       listings: s.listings.filter((l) => !idSet.has(l.id)),
     }));
-    try {
-      await supabase.from("favorites").delete().in("listing_id", ids);
-      await supabase.from("listing_images").delete().in("listing_id", ids);
-      await supabase.from("listings").delete().in("id", ids);
-    } catch (e) {
-      console.error("deleteMultipleListings hatası:", e);
-    }
   },
 
   setReportStatus: async (id, status) => {
