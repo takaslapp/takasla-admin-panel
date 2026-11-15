@@ -134,6 +134,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
             avatar: avatarUrl,
             listingsCount: userListingCounts.get(p.id) || 0,
             joined: joinedFormatted,
+            createdAt: p.created_at || dt.toISOString(),
             role: p.username === "admin" ? "Yönetici" : "Kullanıcı",
           };
         });

@@ -21,6 +21,7 @@ export type User = {
   avatar: string;
   listingsCount: number;
   joined: string;
+  createdAt?: string;
   role: string;
 };
 

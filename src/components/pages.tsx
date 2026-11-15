@@ -91,6 +91,18 @@ const sugTone: Record<SuggestionStatus, "ok" | "warn" | "info" | "mute"> = {
   arsiv: "mute",
 };
 
+function parseDateString(d?: string): number {
+  if (!d) return 0;
+  const t = Date.parse(d);
+  if (!isNaN(t)) return t;
+  const match = d.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})/);
+  if (match) {
+    const [, day, month, year] = match;
+    return new Date(Number(year), Number(month) - 1, Number(day)).getTime();
+  }
+  return 0;
+}
+
 /* =========================================================================
    1. KULLANICILAR SAYFASI
    ========================================================================= */
@@ -102,7 +114,7 @@ export function UsersPage() {
 
   const [q, setQ] = useState("");
   const [activeFilter, setActiveFilter] = useState<"all" | "with_listings" | "no_listings" | "admin">("all");
-  const [sortBy, setSortBy] = useState<"listings" | "newest" | "name">("listings");
+  const [sortBy, setSortBy] = useState<"newest" | "listings" | "name">("newest");
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -142,11 +154,17 @@ export function UsersPage() {
     }
 
     return [...result].sort((a, b) => {
+      if (sortBy === "newest") {
+        const timeA = a.createdAt
+          ? new Date(a.createdAt).getTime()
+          : parseDateString(a.joined);
+        const timeB = b.createdAt
+          ? new Date(b.createdAt).getTime()
+          : parseDateString(b.joined);
+        return timeB - timeA;
+      }
       if (sortBy === "listings") {
         return (b.listingsCount || 0) - (a.listingsCount || 0);
-      }
-      if (sortBy === "newest") {
-        return (b.joined || "").localeCompare(a.joined || "");
       }
       if (sortBy === "name") {
         return a.name.localeCompare(b.name, "tr");
@@ -289,10 +307,10 @@ export function UsersPage() {
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value as any)}
-                  className="rounded-xl border border-line/70 bg-card px-3 py-2 text-xs font-semibold text-ink focus:border-forest focus:outline-none shadow-xs"
+                  className="rounded-xl border border-line/70 bg-card px-3 py-2 text-xs font-semibold text-ink focus:border-forest focus:outline-none shadow-xs cursor-pointer"
                 >
-                  <option value="listings">En Çok İlanı Olan</option>
                   <option value="newest">En Yeni Kayıt</option>
+                  <option value="listings">En Çok İlanı Olan</option>
                   <option value="name">İsim (A-Z)</option>
                 </select>
               </div>
