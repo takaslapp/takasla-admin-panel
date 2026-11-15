@@ -168,6 +168,12 @@ export function NotificationsPage() {
     }
   }, [users.length, fetchDashboardData]);
 
+  const formatUsername = (username?: string) => {
+    if (!username) return "";
+    const clean = username.trim();
+    return clean.startsWith("@") ? clean : `@${clean}`;
+  };
+
   const selectedUser = useMemo(() => {
     if (!targetUser.trim()) return null;
     const clean = targetUser.replace("@", "").trim().toLowerCase();
@@ -175,25 +181,23 @@ export function NotificationsPage() {
       users.find(
         (u) =>
           u.id.toLowerCase() === clean ||
-          (u.username && u.username.toLowerCase() === clean)
+          (u.username && u.username.toLowerCase().replace("@", "") === clean)
       ) || null
     );
   }, [targetUser, users]);
 
   const filteredUsers = useMemo(() => {
     if (!userSearchQuery.trim()) {
-      return users.slice(0, 10);
+      return users; // Tüm kayıtlı kullanıcıları göster
     }
     const q = userSearchQuery.toLowerCase().replace("@", "").trim();
-    return users
-      .filter(
-        (u) =>
-          u.name.toLowerCase().includes(q) ||
-          (u.username && u.username.toLowerCase().includes(q)) ||
-          u.id.toLowerCase().includes(q) ||
-          (u.phone && u.phone.includes(q))
-      )
-      .slice(0, 20);
+    return users.filter(
+      (u) =>
+        u.name.toLowerCase().includes(q) ||
+        (u.username && u.username.toLowerCase().includes(q)) ||
+        u.id.toLowerCase().includes(q) ||
+        (u.phone && u.phone.includes(q))
+    );
   }, [users, userSearchQuery]);
 
   // Gönderim ve Modal Durumları
@@ -671,7 +675,7 @@ export function NotificationsPage() {
                                 </span>
                               </div>
                               <p className="text-xs text-muted truncate">
-                                @{selectedUser.username || "kullanici"} {selectedUser.phone ? `· ${selectedUser.phone}` : ""} {selectedUser.city ? `· ${selectedUser.city}` : ""}
+                                {selectedUser.username ? formatUsername(selectedUser.username) : "@kullanici"} {selectedUser.phone ? `· ${selectedUser.phone}` : ""} {selectedUser.city ? `· ${selectedUser.city}` : ""}
                               </p>
                             </div>
                           </div>
@@ -751,14 +755,16 @@ export function NotificationsPage() {
 
                         {/* Kayıtlı Kullanıcı Listesi */}
                         <div className="rounded-xl border border-line/70 bg-card overflow-hidden shadow-xs">
-                          <div className="p-2 border-b border-line/50 bg-shell/20 flex items-center justify-between text-[11px] text-muted">
-                            <span className="font-semibold text-ink/70">
-                              {userSearchQuery ? "Arama Sonuçları" : "Kayıtlı Kullanıcılar"}
+                          <div className="p-2.5 border-b border-line/50 bg-shell/20 flex items-center justify-between text-[11px] text-muted">
+                            <span className="font-semibold text-ink">
+                              {userSearchQuery
+                                ? `Arama Sonuçları (${filteredUsers.length})`
+                                : `Kayıtlı Tüm Kullanıcılar (${filteredUsers.length} kişi)`}
                             </span>
-                            <span>Tıkla ve Seç</span>
+                            <span className="text-muted/80">Aşağı kaydırarak seçebilirsiniz</span>
                           </div>
 
-                          <div className="max-h-56 overflow-y-auto divide-y divide-line/40">
+                          <div className="max-h-72 sm:max-h-80 overflow-y-auto divide-y divide-line/40">
                             {filteredUsers.length === 0 ? (
                               <div className="p-4 text-center text-xs text-muted space-y-2">
                                 <p>Eşleşen kayıtlı kullanıcı bulunamadı.</p>
@@ -801,7 +807,7 @@ export function NotificationsPage() {
                                         </span>
                                         {u.username ? (
                                           <span className="text-[11px] text-muted truncate">
-                                            @{u.username}
+                                            {formatUsername(u.username)}
                                           </span>
                                         ) : null}
                                       </div>
@@ -1292,7 +1298,7 @@ export function NotificationsPage() {
             <p className="mt-1.5 text-xs text-muted leading-relaxed">
               {targetType === "all"
                 ? `Bu bildirim platformdaki tüm aktif kullanıcılara ve kayıtlı ${stats.totalTokens} cihaza anlık Push Bildirim olarak iletilecektir.`
-                : `Bu bildirim ${selectedUser ? `${selectedUser.name} (@${selectedUser.username || "kullanici"})` : targetUser} kullanıcısının tüm cihazlarına anlık iletilecektir.`}
+                : `Bu bildirim ${selectedUser ? `${selectedUser.name} (${formatUsername(selectedUser.username)})` : targetUser} kullanıcısının tüm cihazlarına anlık iletilecektir.`}
             </p>
 
             {/* Bildirim Özeti */}
