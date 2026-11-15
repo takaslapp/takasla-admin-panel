@@ -48,6 +48,7 @@ export type CompletedSwapPair = {
   itemA: Listing;
   itemB: Listing;
   date: string;
+  status?: "accepted" | "completed";
 };
 
 export type Report = {

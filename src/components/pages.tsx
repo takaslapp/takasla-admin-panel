@@ -680,25 +680,36 @@ export function ListingsPage() {
                   const { pair } = item;
                   const photoA = pair.itemA.images?.[0];
                   const photoB = pair.itemB.images?.[0];
+                  const isAccepted = pair.status === "accepted";
 
                   return (
                     <div
                       key={pair.id}
-                      className="rounded-2xl border border-emerald-300/80 bg-gradient-to-b from-emerald-50/50 to-white p-4 shadow-sm space-y-3"
+                      className={`rounded-2xl border p-4 shadow-sm space-y-3 ${
+                        isAccepted
+                          ? "border-amber-300/80 bg-gradient-to-b from-amber-50/50 to-white"
+                          : "border-emerald-300/80 bg-gradient-to-b from-emerald-50/50 to-white"
+                      }`}
                     >
-                      <div className="flex items-center justify-between border-b border-emerald-100 pb-2.5">
+                      <div className={`flex items-center justify-between border-b pb-2.5 ${isAccepted ? "border-amber-100" : "border-emerald-100"}`}>
                         <div className="flex items-center gap-2">
-                          <span className="flex size-7 items-center justify-center rounded-lg bg-emerald-600 text-white shadow-xs">
+                          <span className={`flex size-7 items-center justify-center rounded-lg text-white shadow-xs ${isAccepted ? "bg-amber-500" : "bg-emerald-600"}`}>
                             <ArrowLeftRight className="size-3.5" />
                           </span>
                           <div>
-                            <h4 className="font-bold text-xs text-emerald-950">Birleşik Takas İşlemi</h4>
+                            <h4 className={`font-bold text-xs ${isAccepted ? "text-amber-950" : "text-emerald-950"}`}>
+                              {isAccepted ? "Devam Eden Takas (Kabul Edildi)" : "Birleşik Takas İşlemi"}
+                            </h4>
                             <p className="text-[10px] text-muted flex items-center gap-1 mt-0.5">
-                              <Clock className="size-2.5" /> {pair.date}
+                              <Clock className="size-2.5" /> {isAccepted ? "Kabul: " : ""}{pair.date}
                             </p>
                           </div>
                         </div>
-                        <StatusChip tone="ok">Takas Tamamlandı</StatusChip>
+                        {isAccepted ? (
+                          <StatusChip tone="warn">Takas Devam Ediyor</StatusChip>
+                        ) : (
+                          <StatusChip tone="ok">Takas Tamamlandı</StatusChip>
+                        )}
                       </div>
 
                       <div className="space-y-2">
@@ -719,7 +730,7 @@ export function ListingsPage() {
                               )}
                             </div>
                             <div className="min-w-0">
-                              <span className="inline-block rounded bg-emerald-100 text-emerald-800 text-[9px] font-bold px-1 py-0.2 mb-0.5">
+                              <span className={`inline-block rounded text-[9px] font-bold px-1 py-0.2 mb-0.5 ${isAccepted ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"}`}>
                                 1. ÜRÜN
                               </span>
                               <p
@@ -749,7 +760,7 @@ export function ListingsPage() {
 
                         {/* Ortadaki Takas İkonu */}
                         <div className="flex justify-center -my-1">
-                          <div className="size-6 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-xs">
+                          <div className={`size-6 rounded-full text-white flex items-center justify-center shadow-xs ${isAccepted ? "bg-amber-500" : "bg-emerald-600"}`}>
                             <ArrowLeftRight className="size-3" />
                           </div>
                         </div>
@@ -771,7 +782,7 @@ export function ListingsPage() {
                               )}
                             </div>
                             <div className="min-w-0">
-                              <span className="inline-block rounded bg-emerald-100 text-emerald-800 text-[9px] font-bold px-1 py-0.2 mb-0.5">
+                              <span className={`inline-block rounded text-[9px] font-bold px-1 py-0.2 mb-0.5 ${isAccepted ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"}`}>
                                 2. ÜRÜN
                               </span>
                               <p
@@ -1093,11 +1104,16 @@ export function ListingsPage() {
                       const { pair } = item;
                       const photoA = pair.itemA.images?.[0];
                       const photoB = pair.itemB.images?.[0];
+                      const isAccepted = pair.status === "accepted";
 
                       return (
                         <tr
                           key={pair.id}
-                          className="bg-emerald-50/40 hover:bg-emerald-50/70 transition-colors border-b border-emerald-200/80 group"
+                          className={`transition-colors border-b group ${
+                            isAccepted
+                              ? "bg-amber-50/40 hover:bg-amber-50/70 border-amber-200/80"
+                              : "bg-emerald-50/40 hover:bg-emerald-50/70 border-emerald-200/80"
+                          }`}
                         >
                           {/* 0. Checkbox (Disabled) */}
                           <td className="py-4 px-3 text-center">
@@ -1106,7 +1122,7 @@ export function ListingsPage() {
                               disabled
                               checked={false}
                               className="size-4 rounded border-line opacity-30 cursor-not-allowed"
-                              title="Tamamlanmış takaslar silinemez"
+                              title="Takas aşamasındaki ilanlar silinemez"
                             />
                           </td>
 
@@ -1122,7 +1138,7 @@ export function ListingsPage() {
                                 className="flex items-center gap-2 cursor-pointer group/a min-w-0"
                                 title={`1. Ürün: ${pair.itemA.title}`}
                               >
-                                <div className="relative size-12 shrink-0 overflow-hidden rounded-xl border border-emerald-300 bg-white shadow-xs group-hover/a:scale-105 transition-transform">
+                                <div className={`relative size-12 shrink-0 overflow-hidden rounded-xl border bg-white shadow-xs group-hover/a:scale-105 transition-transform ${isAccepted ? "border-amber-300" : "border-emerald-300"}`}>
                                   {photoA ? (
                                     <img src={photoA} alt={pair.itemA.title} className="size-full object-cover" />
                                   ) : (
@@ -1132,7 +1148,7 @@ export function ListingsPage() {
                                   )}
                                 </div>
                                 <div className="min-w-0">
-                                  <span className="inline-block rounded bg-emerald-100 text-emerald-800 text-[9px] font-bold px-1 py-0.2 mb-0.5">
+                                  <span className={`inline-block rounded text-[9px] font-bold px-1 py-0.2 mb-0.5 ${isAccepted ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"}`}>
                                     1. ÜRÜN
                                   </span>
                                   <p className="font-bold text-xs text-ink truncate group-hover/a:text-forest max-w-[105px]">
@@ -1145,7 +1161,7 @@ export function ListingsPage() {
                               </div>
 
                               {/* Ortadaki Takas İkonu */}
-                              <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white shadow-xs">
+                              <div className={`flex size-7 shrink-0 items-center justify-center rounded-full text-white shadow-xs ${isAccepted ? "bg-amber-500" : "bg-emerald-600"}`}>
                                 <ArrowLeftRight className="size-3.5" />
                               </div>
 
@@ -1158,7 +1174,7 @@ export function ListingsPage() {
                                 className="flex items-center gap-2 cursor-pointer group/b min-w-0"
                                 title={`2. Ürün: ${pair.itemB.title}`}
                               >
-                                <div className="relative size-12 shrink-0 overflow-hidden rounded-xl border border-emerald-300 bg-white shadow-xs group-hover/b:scale-105 transition-transform">
+                                <div className={`relative size-12 shrink-0 overflow-hidden rounded-xl border bg-white shadow-xs group-hover/b:scale-105 transition-transform ${isAccepted ? "border-amber-300" : "border-emerald-300"}`}>
                                   {photoB ? (
                                     <img src={photoB} alt={pair.itemB.title} className="size-full object-cover" />
                                   ) : (
@@ -1168,7 +1184,7 @@ export function ListingsPage() {
                                   )}
                                 </div>
                                 <div className="min-w-0">
-                                  <span className="inline-block rounded bg-emerald-100 text-emerald-800 text-[9px] font-bold px-1 py-0.2 mb-0.5">
+                                  <span className={`inline-block rounded text-[9px] font-bold px-1 py-0.2 mb-0.5 ${isAccepted ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"}`}>
                                     2. ÜRÜN
                                   </span>
                                   <p className="font-bold text-xs text-ink truncate group-hover/b:text-forest max-w-[105px]">
@@ -1187,7 +1203,7 @@ export function ListingsPage() {
                             <div className="text-xs space-y-0.5">
                               <div className="flex items-center gap-1.5 font-semibold text-ink">
                                 <span>{pair.itemA.ownerName}</span>
-                                <ArrowLeftRight className="size-2.5 text-emerald-600 shrink-0" />
+                                <ArrowLeftRight className={`size-2.5 shrink-0 ${isAccepted ? "text-amber-600" : "text-emerald-600"}`} />
                                 <span>{pair.itemB.ownerName}</span>
                               </div>
                               <p className="text-[11px] text-muted">
@@ -1198,21 +1214,23 @@ export function ListingsPage() {
 
                           {/* 3. Kategori & Durum */}
                           <td className="py-4 px-3">
-                            <span className="inline-flex rounded-full bg-emerald-100 text-emerald-900 px-2.5 py-0.5 text-xs font-semibold">
+                            <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${isAccepted ? "bg-amber-100 text-amber-900" : "bg-emerald-100 text-emerald-900"}`}>
                               {pair.itemA.category}
                             </span>
-                            <p className="text-[11px] text-emerald-800/80 mt-0.5 font-medium">Karşılıklı Takas</p>
+                            <p className={`text-[11px] mt-0.5 font-medium ${isAccepted ? "text-amber-800/80" : "text-emerald-800/80"}`}>
+                              {isAccepted ? "Kabul Edildi (Süreçte)" : "Karşılıklı Takas"}
+                            </p>
                           </td>
 
                           {/* 4. İstenen Takas (Birebir Eşleşti - Sade & Ferah) */}
                           <td className="py-4 px-3 max-w-[180px]">
                             <div className="text-xs">
-                              <span className="font-semibold text-emerald-950 flex items-center gap-1">
-                                <ArrowLeftRight className="size-3 text-emerald-600 shrink-0" />
-                                Birebir Takas
+                              <span className={`font-semibold flex items-center gap-1 ${isAccepted ? "text-amber-950" : "text-emerald-950"}`}>
+                                <ArrowLeftRight className={`size-3 shrink-0 ${isAccepted ? "text-amber-600" : "text-emerald-600"}`} />
+                                {isAccepted ? "Aktif Takas" : "Birebir Takas"}
                               </span>
                               <p className="text-[11px] text-muted truncate mt-0.5">
-                                Karşılıklı el değiştirdi
+                                {isAccepted ? "Fiziksel takas bekleniyor" : "Karşılıklı el değiştirdi"}
                               </p>
                             </div>
                           </td>
@@ -1220,8 +1238,12 @@ export function ListingsPage() {
                           {/* 5. Moderasyon Durumu */}
                           <td className="py-4 px-3">
                             <div>
-                              <StatusChip tone="ok">Takas Tamamlandı</StatusChip>
-                              <span className="block text-[11px] text-emerald-800 mt-0.5 font-medium flex items-center gap-1">
+                              {isAccepted ? (
+                                <StatusChip tone="warn">Takas Devam Ediyor</StatusChip>
+                              ) : (
+                                <StatusChip tone="ok">Takas Tamamlandı</StatusChip>
+                              )}
+                              <span className={`block text-[11px] mt-0.5 font-medium flex items-center gap-1 ${isAccepted ? "text-amber-800" : "text-emerald-800"}`}>
                                 <Clock className="size-3" /> {pair.date}
                               </span>
                             </div>

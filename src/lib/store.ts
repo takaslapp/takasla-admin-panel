@@ -351,6 +351,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
               itemA,
               itemB,
               date: dateStr,
+              status: off.status === "completed" ? "completed" : "accepted",
             });
           }
         }
@@ -368,6 +369,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
           itemA,
           itemB,
           date: itemA.created || "Tamamlandı",
+          status: "completed",
         });
       }
 
