@@ -22,9 +22,13 @@ import {
   Trash2,
   Eye,
   ShieldCheck,
+  Copy,
+  X,
 } from "lucide-react";
 import { AdminShell, Panel, StatusChip } from "@/components/admin-shell";
 import { Button } from "@/components/ui/button";
+import { useAdminStore } from "@/lib/store";
+import type { User } from "@/lib/data";
 import {
   sendBroadcastAnnouncement,
   sendTargetedAnnouncement,
@@ -145,13 +149,52 @@ export function NotificationsPage() {
   const [isLoadingStats, setIsLoadingStats] = useState(false);
 
   // Form durumları
+  const users = useAdminStore((s) => s.users);
+  const fetchDashboardData = useAdminStore((s) => s.fetchDashboardData);
+
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [targetType, setTargetType] = useState<"all" | "targeted">("all");
   const [targetUser, setTargetUser] = useState("");
+  const [userSearchQuery, setUserSearchQuery] = useState("");
+  const [copiedUserId, setCopiedUserId] = useState<string | null>(null);
   const [inAppNotif, setInAppNotif] = useState(true);
   const [activeCategory, setActiveCategory] = useState<"all" | "bayram" | "yas" | "sistem" | "kampanya">("all");
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (users.length === 0) {
+      fetchDashboardData();
+    }
+  }, [users.length, fetchDashboardData]);
+
+  const selectedUser = useMemo(() => {
+    if (!targetUser.trim()) return null;
+    const clean = targetUser.replace("@", "").trim().toLowerCase();
+    return (
+      users.find(
+        (u) =>
+          u.id.toLowerCase() === clean ||
+          (u.username && u.username.toLowerCase() === clean)
+      ) || null
+    );
+  }, [targetUser, users]);
+
+  const filteredUsers = useMemo(() => {
+    if (!userSearchQuery.trim()) {
+      return users.slice(0, 10);
+    }
+    const q = userSearchQuery.toLowerCase().replace("@", "").trim();
+    return users
+      .filter(
+        (u) =>
+          u.name.toLowerCase().includes(q) ||
+          (u.username && u.username.toLowerCase().includes(q)) ||
+          u.id.toLowerCase().includes(q) ||
+          (u.phone && u.phone.includes(q))
+      )
+      .slice(0, 20);
+  }, [users, userSearchQuery]);
 
   // Gönderim ve Modal Durumları
   const [isSending, setIsSending] = useState(false);
@@ -218,7 +261,7 @@ export function NotificationsPage() {
       return;
     }
     if (targetType === "targeted" && !targetUser.trim()) {
-      toast.error("Lütfen hedef kullanıcı adı (@kullanici) veya ID girin.");
+      toast.error("Lütfen bildirim gönderilecek hedef kullanıcıyı seçin.");
       return;
     }
     setShowConfirmModal(true);
@@ -228,10 +271,11 @@ export function NotificationsPage() {
     setShowConfirmModal(false);
     setIsSending(true);
 
+    const targetDisplayName = selectedUser ? `${selectedUser.name}` : targetUser;
     const toastId = toast.loading(
       targetType === "all"
         ? "Tüm cihazlara bildirim gönderiliyor..."
-        : `${targetUser} kullanıcısına gönderiliyor...`,
+        : `${targetDisplayName} kullanıcısına gönderiliyor...`,
     );
 
     try {
@@ -595,23 +639,213 @@ export function NotificationsPage() {
 
                 {/* Tekil Hedef Alanı */}
                 {targetType === "targeted" ? (
-                  <div className="rounded-xl border border-line/60 bg-shell/30 p-3">
-                    <label className="text-xs font-semibold text-ink">
-                      Kullanıcı Adı veya Kullanıcı ID
-                    </label>
-                    <div className="mt-1 flex items-center gap-2">
-                      <span className="text-sm font-bold text-muted">@</span>
-                      <input
-                        type="text"
-                        placeholder="ornek_kullanici veya UUID"
-                        value={targetUser}
-                        onChange={(e) => setTargetUser(e.target.value)}
-                        className="w-full rounded-lg border border-line/70 bg-card px-3 py-2 text-xs font-medium text-ink focus:border-forest focus:outline-none focus:ring-1 focus:ring-forest"
-                      />
+                  <div className="rounded-2xl border border-line/70 bg-shell/30 p-3.5 sm:p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-ink flex items-center gap-1.5">
+                        <Users className="size-3.5 text-forest" />
+                        Hedef Kullanıcı Seçimi
+                      </label>
+                      <span className="text-[11px] font-medium text-muted bg-shell/80 px-2 py-0.5 rounded-full border border-line/60">
+                        Kayıtlı: {users.length} Kullanıcı
+                      </span>
                     </div>
-                    <p className="mt-1 text-[11px] text-muted">
-                      Bildirim sadece bu kullanıcının kayıtlı cihazlarına iletilir.
-                    </p>
+
+                    {selectedUser ? (
+                      /* Seçilen Kullanıcı Kartı */
+                      <div className="rounded-xl border border-forest/30 bg-forest/5 p-3 relative space-y-2.5">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <img
+                              src={selectedUser.avatar || "/images/takasla-icon.jpg"}
+                              alt={selectedUser.name}
+                              className="size-10 rounded-full object-cover border border-line/70 shrink-0 bg-shell"
+                              onError={(e) => {
+                                (e.currentTarget as HTMLImageElement).src = "/images/takasla-icon.jpg";
+                              }}
+                            />
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <p className="font-bold text-sm text-ink truncate">{selectedUser.name}</p>
+                                <span className="text-[10px] font-semibold text-forest bg-forest/10 px-1.5 py-0.5 rounded-md">
+                                  {selectedUser.role}
+                                </span>
+                              </div>
+                              <p className="text-xs text-muted truncate">
+                                @{selectedUser.username || "kullanici"} {selectedUser.phone ? `· ${selectedUser.phone}` : ""} {selectedUser.city ? `· ${selectedUser.city}` : ""}
+                              </p>
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setTargetUser("");
+                              setUserSearchQuery("");
+                            }}
+                            className="rounded-lg p-1.5 text-muted hover:text-rose-600 hover:bg-rose-50 transition-colors shrink-0"
+                            title="Kullanıcıyı Değiştir / Kaldır"
+                          >
+                            <X className="size-4" />
+                          </button>
+                        </div>
+
+                        {/* UUID Gösterimi ve Kopyalama */}
+                        <div className="flex items-center justify-between gap-2 border-t border-forest/15 pt-2 text-[11px]">
+                          <div className="flex items-center gap-1.5 min-w-0 text-muted font-mono">
+                            <span className="shrink-0 text-ink/70 font-semibold">ID:</span>
+                            <span className="truncate select-all text-ink">{selectedUser.id}</span>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              navigator.clipboard.writeText(selectedUser.id);
+                              setCopiedUserId(selectedUser.id);
+                              toast.success("Kullanıcı ID panoya kopyalandı!");
+                              setTimeout(() => setCopiedUserId(null), 2000);
+                            }}
+                            className="flex items-center gap-1 shrink-0 rounded-md bg-card px-2 py-1 font-sans text-xs font-semibold text-forest border border-forest/20 hover:bg-forest/10 transition-colors"
+                          >
+                            {copiedUserId === selectedUser.id ? (
+                              <>
+                                <Check className="size-3 text-emerald-600" />
+                                <span className="text-emerald-700">Kopyalandı</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="size-3" />
+                                <span>ID Kopyala</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      /* Kullanıcı Seçim & Arama Listesi */
+                      <div className="space-y-2">
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted" />
+                          <input
+                            type="text"
+                            placeholder="İsim, @kullanıcı adı, telefon veya ID ile arayın..."
+                            value={userSearchQuery}
+                            onChange={(e) => {
+                              setUserSearchQuery(e.target.value);
+                              if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(e.target.value.trim())) {
+                                setTargetUser(e.target.value.trim());
+                              }
+                            }}
+                            className="w-full rounded-xl border border-line/80 bg-card pl-9 pr-8 py-2 text-xs font-medium text-ink placeholder:text-muted/70 focus:border-forest focus:outline-none focus:ring-1 focus:ring-forest"
+                          />
+                          {userSearchQuery ? (
+                            <button
+                              type="button"
+                              onClick={() => setUserSearchQuery("")}
+                              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted hover:text-ink"
+                            >
+                              <X className="size-3.5" />
+                            </button>
+                          ) : null}
+                        </div>
+
+                        {/* Kayıtlı Kullanıcı Listesi */}
+                        <div className="rounded-xl border border-line/70 bg-card overflow-hidden shadow-xs">
+                          <div className="p-2 border-b border-line/50 bg-shell/20 flex items-center justify-between text-[11px] text-muted">
+                            <span className="font-semibold text-ink/70">
+                              {userSearchQuery ? "Arama Sonuçları" : "Kayıtlı Kullanıcılar"}
+                            </span>
+                            <span>Tıkla ve Seç</span>
+                          </div>
+
+                          <div className="max-h-56 overflow-y-auto divide-y divide-line/40">
+                            {filteredUsers.length === 0 ? (
+                              <div className="p-4 text-center text-xs text-muted space-y-2">
+                                <p>Eşleşen kayıtlı kullanıcı bulunamadı.</p>
+                                {userSearchQuery.trim() ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setTargetUser(userSearchQuery.trim());
+                                    }}
+                                    className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-shell/40 px-2.5 py-1 text-xs font-semibold text-forest hover:bg-shell"
+                                  >
+                                    <span>"{userSearchQuery.trim()}" ID olarak kullan</span>
+                                  </button>
+                                ) : null}
+                              </div>
+                            ) : (
+                              filteredUsers.map((u) => (
+                                <div
+                                  key={u.id}
+                                  onClick={() => {
+                                    setTargetUser(u.id);
+                                    setUserSearchQuery("");
+                                    toast.success(`${u.name} seçildi`);
+                                  }}
+                                  className="group flex items-center justify-between gap-3 p-2.5 hover:bg-forest/5 cursor-pointer transition-colors"
+                                >
+                                  <div className="flex items-center gap-2.5 min-w-0">
+                                    <img
+                                      src={u.avatar || "/images/takasla-icon.jpg"}
+                                      alt={u.name}
+                                      className="size-8 rounded-full object-cover border border-line/60 shrink-0 bg-shell"
+                                      onError={(e) => {
+                                        (e.currentTarget as HTMLImageElement).src = "/images/takasla-icon.jpg";
+                                      }}
+                                    />
+                                    <div className="min-w-0">
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="font-semibold text-xs text-ink truncate group-hover:text-forest transition-colors">
+                                          {u.name}
+                                        </span>
+                                        {u.username ? (
+                                          <span className="text-[11px] text-muted truncate">
+                                            @{u.username}
+                                          </span>
+                                        ) : null}
+                                      </div>
+                                      <p className="text-[10px] text-muted font-mono truncate">
+                                        ID: {u.id}
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        navigator.clipboard.writeText(u.id);
+                                        setCopiedUserId(u.id);
+                                        toast.success("Kullanıcı ID kopyalandı!");
+                                        setTimeout(() => setCopiedUserId(null), 2000);
+                                      }}
+                                      className="p-1 rounded text-muted hover:text-forest hover:bg-forest/10 transition-colors"
+                                      title="ID Kopyala"
+                                    >
+                                      {copiedUserId === u.id ? (
+                                        <Check className="size-3.5 text-emerald-600" />
+                                      ) : (
+                                        <Copy className="size-3.5" />
+                                      )}
+                                    </button>
+
+                                    <span className="text-[11px] font-semibold text-forest bg-forest/10 group-hover:bg-forest group-hover:text-card px-2 py-0.5 rounded-lg transition-colors">
+                                      Seç
+                                    </span>
+                                  </div>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        </div>
+
+                        <p className="text-[11px] text-muted">
+                          Kullanıcı listesi Supabase ile anlık senkronizedir; yeni kayıt olan kullanıcılar buraya otomatik olarak eklenir.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 ) : null}
 
@@ -1058,7 +1292,7 @@ export function NotificationsPage() {
             <p className="mt-1.5 text-xs text-muted leading-relaxed">
               {targetType === "all"
                 ? `Bu bildirim platformdaki tüm aktif kullanıcılara ve kayıtlı ${stats.totalTokens} cihaza anlık Push Bildirim olarak iletilecektir.`
-                : `Bu bildirim ${targetUser} kullanıcısının tüm cihazlarına anlık iletilecektir.`}
+                : `Bu bildirim ${selectedUser ? `${selectedUser.name} (@${selectedUser.username || "kullanici"})` : targetUser} kullanıcısının tüm cihazlarına anlık iletilecektir.`}
             </p>
 
             {/* Bildirim Özeti */}

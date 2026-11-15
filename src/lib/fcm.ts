@@ -170,15 +170,28 @@ export async function sendTargetedAnnouncement({
     const query = userIdOrUsername.trim().replace("@", "");
     if (!query) throw new Error("Kullanıcı adı veya ID belirtilmedi.");
 
-    // Kullanıcıyı profiles tablosunda ara
-    const { data: userRow, error: uErr } = await supabase
-      .from("profiles")
-      .select("id, full_name, username")
-      .or(`username.ilike.${query},id.eq.${query}`)
-      .maybeSingle();
+    // Kullanıcıyı profiles tablosunda ara (UUID ve kullanıcı adı tip güvenli kontrol)
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(query);
+    let userRow: { id: string; full_name: string | null; username: string | null } | null = null;
 
-    if (uErr || !userRow) {
-      throw new Error(`@${query} kullanıcısı veritabanında bulunamadı.`);
+    if (isUuid) {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name, username")
+        .eq("id", query)
+        .maybeSingle();
+      if (!error && data) userRow = data;
+    } else {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name, username")
+        .ilike("username", query)
+        .maybeSingle();
+      if (!error && data) userRow = data;
+    }
+
+    if (!userRow) {
+      throw new Error(`"${query}" kullanıcısı veritabanında bulunamadı.`);
     }
 
     const cleanTitle = title.trim();
