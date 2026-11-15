@@ -55,6 +55,7 @@ export function AdminShell({
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [open, setOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const reports = useAdminStore((s) => s.reports);
@@ -182,9 +183,23 @@ export function AdminShell({
               })}
             </nav>
 
-            {/* Sağ Üst Aksiyonlar: Sıralama: [Zil] -> [Yenileme] -> [Menü (mobilde)] -> [EN SAĞDA TAKASLA AVATAR] */}
+            {/* Sağ Üst Aksiyonlar:
+                Mobilde Sıralama: [Çıkış] -> [Zil] -> [Yenileme] -> [Menü] -> [Avatar]
+                Masaüstünde Sıralama: [Zil] -> [Yenileme] -> [Çıkış] -> [Avatar]
+            */}
             <div className="flex items-center gap-1.5 sm:gap-2">
-              {/* 1. ZİL BUTONU */}
+              {/* ÇIKIŞ YAP BUTONU (Mobilde en solda, Menü butonundan uzakta) */}
+              <button
+                type="button"
+                aria-label="Çıkış Yap"
+                onClick={() => setShowLogoutConfirm(true)}
+                className="order-first lg:order-3 grid size-9 sm:size-11 place-items-center rounded-full bg-card/92 text-bad transition-all hover:bg-bad hover:text-white cursor-pointer"
+                title="Çıkış Yap"
+              >
+                <LogOut className="size-4" />
+              </button>
+
+              {/* ZİL BUTONU */}
               <button
                 type="button"
                 aria-label="Bildirimler"
@@ -199,7 +214,7 @@ export function AdminShell({
                   setOpen(false);
                 }}
                 className={cn(
-                  "relative grid size-9 sm:size-11 place-items-center rounded-full bg-card/92 text-forest transition-all hover:bg-card",
+                  "order-2 lg:order-1 relative grid size-9 sm:size-11 place-items-center rounded-full bg-card/92 text-forest transition-all hover:bg-card",
                   notifOpen && "ring-2 ring-accent",
                 )}
                 title="Bildirimler"
@@ -212,32 +227,21 @@ export function AdminShell({
                 ) : null}
               </button>
 
-              {/* 2. YENİLEME İKONU (Siteyi Yenile) */}
+              {/* YENİLEME İKONU (Siteyi Yenile) */}
               <button
                 type="button"
                 aria-label="Siteyi Yenile"
                 onClick={handlePageReload}
-                className="grid size-9 sm:size-11 place-items-center rounded-full bg-card/92 text-forest transition-all hover:bg-card hover:rotate-45"
+                className="order-3 lg:order-2 grid size-9 sm:size-11 place-items-center rounded-full bg-card/92 text-forest transition-all hover:bg-card hover:rotate-45"
                 title="Siteyi Yenile"
               >
                 <RotateCw className={cn("size-4", isRefreshing && "animate-spin")} />
               </button>
 
-              {/* 3. ÇIKIŞ YAP BUTONU */}
+              {/* MOBİL MENÜ (Sadece küçük ekranda görünür) */}
               <button
                 type="button"
-                aria-label="Çıkış Yap"
-                onClick={handleLogout}
-                className="grid size-9 sm:size-11 place-items-center rounded-full bg-card/92 text-bad transition-all hover:bg-bad hover:text-white cursor-pointer"
-                title="Çıkış Yap"
-              >
-                <LogOut className="size-4" />
-              </button>
-
-              {/* 4. MOBİL MENÜ (Sadece küçük ekranda görünür) */}
-              <button
-                type="button"
-                className="grid size-9 sm:size-11 place-items-center rounded-full bg-card/92 text-forest lg:hidden"
+                className="order-4 lg:hidden grid size-9 sm:size-11 place-items-center rounded-full bg-card/92 text-forest"
                 aria-label="Menü"
                 onClick={() => {
                   setOpen((v) => !v);
@@ -247,11 +251,11 @@ export function AdminShell({
                 {open ? <X className="size-4" /> : <Menu className="size-4" />}
               </button>
 
-              {/* 5. EN SAĞDA: TAKASLA AVATAR */}
+              {/* EN SAĞDA: TAKASLA AVATAR */}
               <img
                 src="/images/takasla-icon.jpg"
                 alt="Takasla"
-                className="size-9 sm:size-11 rounded-full object-cover ring-2 ring-card/90 shadow-sm"
+                className="order-5 lg:order-4 size-9 sm:size-11 rounded-full object-cover ring-2 ring-card/90 shadow-sm"
               />
             </div>
           </div>
@@ -506,7 +510,7 @@ export function AdminShell({
                     type="button"
                     onClick={() => {
                       setOpen(false);
-                      handleLogout();
+                      setShowLogoutConfirm(true);
                     }}
                     className="flex w-full items-center justify-between rounded-xl px-4 py-2.5 text-sm font-semibold text-bad hover:bg-bad-soft transition-colors cursor-pointer"
                   >
@@ -519,6 +523,44 @@ export function AdminShell({
               </div>
             </>
           ) : null}
+
+      {/* Çıkış Yap Onay Modalı */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 bg-black/50 backdrop-blur-xs transition-opacity"
+            onClick={() => setShowLogoutConfirm(false)}
+          />
+          <div className="relative z-10 w-full max-w-sm rounded-2xl bg-card p-5 shadow-2xl ring-1 ring-line/80 animate-in fade-in zoom-in-95">
+            <div className="flex size-11 items-center justify-center rounded-xl bg-rose-500/10 text-rose-600 mb-3.5">
+              <LogOut className="size-5" />
+            </div>
+            <h3 className="text-base font-bold text-ink">Yönetici Oturumu Kapatılsın mı?</h3>
+            <p className="mt-1 text-xs text-muted leading-relaxed">
+              Admin panelinden güvenli bir şekilde çıkış yapılacak. Tekrar erişmek için yönetici bilgilerinizle oturum açmanız gerekecektir.
+            </p>
+            <div className="mt-5 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setShowLogoutConfirm(false)}
+                className="rounded-xl border border-line bg-shell/50 px-3.5 py-2 text-xs font-semibold text-ink hover:bg-shell transition-colors cursor-pointer"
+              >
+                Vazgeç
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLogoutConfirm(false);
+                  handleLogout();
+                }}
+                className="rounded-xl bg-rose-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-rose-700 transition-colors cursor-pointer"
+              >
+                Evet, Çıkış Yap
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
