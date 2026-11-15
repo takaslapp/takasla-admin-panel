@@ -1,6 +1,6 @@
 import { ArrowUpRight, Package, Repeat, ShieldAlert, Users, Clock, CheckCircle2, AlertCircle, Sparkles } from "lucide-react";
 import { Link } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useAdminStore } from "@/lib/store";
 import { AdminShell, Panel, StatusChip } from "./admin-shell";
 import { Button } from "./ui/button";
@@ -72,6 +72,19 @@ export function OverviewPage() {
   const rejectedListings = listings.filter((l) => l.status === "rejected");
   const openReports = reports.filter((r) => r.status === "acik" || r.status === "inceleniyor");
   const openSuggestions = suggestions.filter((s) => s.status === "yeni" || s.status === "degerlendiriliyor");
+
+  const recentListings = useMemo(
+    () =>
+      listings
+        .filter(
+          (l) =>
+            l.status !== "completed" &&
+            l.status !== "takaslandi" &&
+            l.status !== "deleted"
+        )
+        .slice(0, 5),
+    [listings]
+  );
 
   return (
     <AdminShell
@@ -207,21 +220,45 @@ export function OverviewPage() {
             }
             className="lg:col-span-7"
           >
-            {listings.length === 0 ? (
-              <p className="py-8 text-center text-sm text-muted">Henüz ilan eklenmedi.</p>
+            {recentListings.length === 0 ? (
+              <p className="py-8 text-center text-sm text-muted">Henüz listelenecek ilan bulunmuyor.</p>
             ) : (
               <>
                 {/* Mobil Kart Görünümü */}
                 <div className="space-y-2.5 sm:hidden">
-                  {listings.slice(0, 5).map((l) => (
+                  {recentListings.map((l) => (
                     <div key={l.id} className="rounded-xl border border-line/60 bg-shell/20 p-3 space-y-2">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <p className="font-semibold text-sm text-ink truncate">{l.title}</p>
                           <p className="text-xs text-muted mt-0.5">{l.city} · {l.category}</p>
                         </div>
-                        <StatusChip tone={l.status === "pending" ? "warn" : l.status === "revision_requested" ? "warn" : l.status === "approved" || l.status === "yayinda" ? "ok" : l.status === "deleted" ? "mute" : "bad"}>
-                          {l.status === "pending" ? "Onay Bekliyor" : l.status === "revision_requested" ? "Revize İstendi" : l.status === "approved" || l.status === "yayinda" ? "Yayında" : l.status === "deleted" ? "Silindi" : "Reddedildi"}
+                        <StatusChip
+                          tone={
+                            l.status === "pending"
+                              ? "warn"
+                              : l.status === "revision_requested"
+                                ? "warn"
+                                : l.status === "approved" || l.status === "yayinda"
+                                  ? "ok"
+                                  : l.status === "completed" || l.status === "takaslandi"
+                                    ? "ok"
+                                    : l.status === "deleted"
+                                      ? "mute"
+                                      : "bad"
+                          }
+                        >
+                          {l.status === "pending"
+                            ? "Onay Bekliyor"
+                            : l.status === "revision_requested"
+                              ? "Revize İstendi"
+                              : l.status === "approved" || l.status === "yayinda"
+                                ? "Yayında"
+                                : l.status === "completed" || l.status === "takaslandi"
+                                  ? "Takaslandı"
+                                  : l.status === "deleted"
+                                    ? "Silindi"
+                                    : "Reddedildi"}
                         </StatusChip>
                       </div>
                       <p className="text-xs text-muted border-t border-line/50 pt-1.5 flex items-center justify-between">
@@ -244,7 +281,7 @@ export function OverviewPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-line/60">
-                      {listings.slice(0, 5).map((l) => (
+                      {recentListings.map((l) => (
                         <tr key={l.id} className="hover:bg-shell/30 transition-colors">
                           <td className="py-3 font-medium text-ink">
                             <p className="line-clamp-1">{l.title}</p>
@@ -259,6 +296,8 @@ export function OverviewPage() {
                               <StatusChip tone="warn">Revize İstendi</StatusChip>
                             ) : l.status === "approved" || l.status === "yayinda" ? (
                               <StatusChip tone="ok">Yayında</StatusChip>
+                            ) : l.status === "completed" || l.status === "takaslandi" ? (
+                              <StatusChip tone="ok">Takaslandı</StatusChip>
                             ) : l.status === "deleted" ? (
                               <StatusChip tone="mute">Silindi</StatusChip>
                             ) : (

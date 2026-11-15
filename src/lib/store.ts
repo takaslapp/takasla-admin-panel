@@ -171,6 +171,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
             else if (s === "revision_requested" || s === "revize_istendi") status = "revision_requested";
             else if (s === "rejected" || s === "reddedildi") status = "rejected";
             else if (s === "deleted" || s === "silindi") status = "deleted";
+            else if (s === "completed" || s === "takaslandi" || s === "swapped") status = "completed";
             else status = s as ListingStatus;
           } else {
             status = l.is_active === false ? "rejected" : "approved";

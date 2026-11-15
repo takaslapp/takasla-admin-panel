@@ -854,6 +854,8 @@ export function ListingsPage() {
                           <StatusChip tone="warn">Revize İstendi</StatusChip>
                         ) : l.status === "approved" || l.status === "yayinda" ? (
                           <StatusChip tone="ok">Yayında</StatusChip>
+                        ) : l.status === "completed" || l.status === "takaslandi" ? (
+                          <StatusChip tone="ok">Takas Tamamlandı</StatusChip>
                         ) : (
                           <StatusChip tone="bad">Reddedildi</StatusChip>
                         )}
@@ -1398,6 +1400,11 @@ export function ListingsPage() {
                             <div>
                               <StatusChip tone="ok">Yayında</StatusChip>
                               <span className="block text-[11px] text-emerald-800 mt-0.5 font-medium">Aktif İlan</span>
+                            </div>
+                          ) : l.status === "completed" || l.status === "takaslandi" ? (
+                            <div>
+                              <StatusChip tone="ok">Takas Tamamlandı</StatusChip>
+                              <span className="block text-[11px] text-emerald-800 mt-0.5 font-medium">Takaslandı</span>
                             </div>
                           ) : (
                             <div>
