@@ -24,6 +24,8 @@ import {
   ShieldCheck,
   Copy,
   X,
+  Camera,
+  Flashlight,
 } from "lucide-react";
 import { AdminShell, Panel, StatusChip } from "@/components/admin-shell";
 import { Button } from "@/components/ui/button";
@@ -233,6 +235,7 @@ export function NotificationsPage() {
     setBody(t.body);
     setSelectedTemplateId(t.id);
     toast.info(`"${t.label}" şablonu yüklendi.`);
+    document.getElementById("bildirim-olusturucu")?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   const handleInsertEmoji = (emoji: string) => {
@@ -431,180 +434,25 @@ export function NotificationsPage() {
       }
     >
       <div className="grid gap-6">
-        {/* KPI İstatistik Kartları */}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
-          <div className="rounded-2xl border border-line/60 bg-card p-4 shadow-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-muted">Kayıtlı Cihazlar</span>
-              <div className="flex size-7 items-center justify-center rounded-lg bg-accent/20 text-accent-fg">
-                <Smartphone className="size-4" />
-              </div>
-            </div>
-            <p className="mt-2 text-2xl font-bold tracking-tight text-ink">
-              {stats.totalTokens}
-            </p>
-            <p className="mt-0.5 text-[11px] text-muted">
-              {stats.iosDevices} iOS · {stats.androidDevices} Android
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-line/60 bg-card p-4 shadow-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-muted">Takasla Üyeleri</span>
-              <div className="flex size-7 items-center justify-center rounded-lg bg-forest/10 text-forest">
-                <Users className="size-4" />
-              </div>
-            </div>
-            <p className="mt-2 text-2xl font-bold tracking-tight text-ink">
-              {stats.totalUsers}
-            </p>
-            <p className="mt-0.5 text-[11px] text-forest font-medium">
-              Aktif Profil Sayısı
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-line/60 bg-card p-4 shadow-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-muted">Yayın Kanalı</span>
-              <div className="flex size-7 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-700">
-                <Radio className="size-4" />
-              </div>
-            </div>
-            <p className="mt-2 text-xl font-bold tracking-tight text-ink">
-              FCM HTTP v1
-            </p>
-            <p className="mt-0.5 text-[11px] text-muted">
-              Topic: <span className="font-semibold">all_users</span>
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-line/60 bg-card p-4 shadow-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-muted">Gönderilenler</span>
-              <div className="flex size-7 items-center justify-center rounded-lg bg-amber-500/15 text-amber-700">
-                <Clock className="size-4" />
-              </div>
-            </div>
-            <p className="mt-2 text-2xl font-bold tracking-tight text-ink">
-              {history.length}
-            </p>
-            <p className="mt-0.5 text-[11px] text-muted">
-              Toplam Duyuru Kaydı
-            </p>
-          </div>
-        </div>
-
-        {/* Hazır Şablonlar Paneli */}
-        <Panel
-          title="Hazır Bildirim Şablonları"
-          subtitle="Bayramlar, milli günler, başsağlığı veya sistem duyuruları için tek tıkla mesajı doldurun"
-        >
-          {/* Kategori Filtre Butonları */}
-          <div className="flex flex-wrap items-center gap-1.5 border-b border-line/60 pb-3 mb-4">
-            <button
-              type="button"
-              onClick={() => setActiveCategory("all")}
-              className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
-                activeCategory === "all"
-                  ? "bg-forest text-card"
-                  : "bg-shell/80 text-forest hover:bg-shell"
-              }`}
-            >
-              Tüm Şablonlar ({TEMPLATES.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveCategory("bayram")}
-              className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
-                activeCategory === "bayram"
-                  ? "bg-forest text-card"
-                  : "bg-shell/80 text-forest hover:bg-shell"
-              }`}
-            >
-              🍬 Bayramlar & Kutlamalar
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveCategory("yas")}
-              className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
-                activeCategory === "yas"
-                  ? "bg-forest text-card"
-                  : "bg-shell/80 text-forest hover:bg-shell"
-              }`}
-            >
-              🖤 Başsağlığı & Taziye
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveCategory("sistem")}
-              className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
-                activeCategory === "sistem"
-                  ? "bg-forest text-card"
-                  : "bg-shell/80 text-forest hover:bg-shell"
-              }`}
-            >
-              ⚙️ Güncelleme & Bakım
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveCategory("kampanya")}
-              className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
-                activeCategory === "kampanya"
-                  ? "bg-forest text-card"
-                  : "bg-shell/80 text-forest hover:bg-shell"
-              }`}
-            >
-              ✨ Takas & Kampanyalar
-            </button>
-          </div>
-
-          {/* Şablon Kartları Grid */}
-          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {filteredTemplates.map((t) => {
-              const isSelected = selectedTemplateId === t.id;
-              return (
-                <div
-                  key={t.id}
-                  onClick={() => handleSelectTemplate(t)}
-                  className={`group relative flex cursor-pointer flex-col justify-between rounded-xl border p-3 transition-all hover:border-forest/40 hover:bg-shell/50 hover:shadow-sm ${
-                    isSelected
-                      ? "border-forest bg-forest/5 ring-2 ring-forest/20"
-                      : "border-line/60 bg-card"
-                  }`}
-                >
-                  <div>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xl">{t.icon}</span>
-                      {isSelected ? (
-                        <span className="flex size-5 items-center justify-center rounded-full bg-forest text-card">
-                          <Check className="size-3" />
-                        </span>
-                      ) : null}
-                    </div>
-                    <h4 className="mt-2 text-xs font-bold text-ink group-hover:text-forest">
-                      {t.label}
-                    </h4>
-                    <p className="mt-1 line-clamp-2 text-[11px] text-muted">
-                      {t.body}
-                    </p>
-                  </div>
-                  <div className="mt-2.5 flex items-center gap-1 text-[10px] font-semibold text-forest">
-                    <span>Şablonu Seç</span>
-                    <ChevronRight className="size-3 transition-transform group-hover:translate-x-0.5" />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </Panel>
-
-        {/* Ana Gönderim Alanı: Sol Form / Sağ Canlı Simülatör */}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+        {/* Ana Gönderim Alanı: Sol Form / Sağ Canlı Simülatör (Mobilde ve Masaüstünde Öncelikli) */}
+        <div id="bildirim-olusturucu" className="grid grid-cols-1 gap-6 lg:grid-cols-12 scroll-mt-6">
           {/* Sol Kolon: Bildirim Formu */}
           <div className="lg:col-span-7">
             <Panel
               title="Bildirim Oluşturucu"
               subtitle="Başlık, mesaj ve hedef kitleyi belirleyin"
+              action={
+                <button
+                  type="button"
+                  onClick={() => {
+                    document.getElementById("hazir-sablonlar")?.scrollIntoView({ behavior: "smooth" });
+                  }}
+                  className="flex items-center gap-1.5 rounded-lg border border-forest/20 bg-forest/10 px-2.5 py-1 text-xs font-semibold text-forest hover:bg-forest/15 transition-colors"
+                >
+                  <Sparkles className="size-3.5 text-forest" />
+                  <span>Hazır Şablonlar ({TEMPLATES.length})</span>
+                </button>
+              }
             >
               <div className="space-y-4">
                 {/* Hedef Kitle Seçici */}
@@ -973,11 +821,11 @@ export function NotificationsPage() {
             </Panel>
           </div>
 
-          {/* Sağ Kolon: Canlı Telefon Simülatörü */}
+          {/* Sağ Kolon: Canlı Telefon Simülatörü (iPhone 15 Pro Mockup) */}
           <div className="lg:col-span-5">
             <Panel
               title="Canlı Telefon Önizlemesi"
-              subtitle="Bildirimin kullanıcının cihazında nasıl görüneceğini test edin"
+              subtitle="iPhone 15 Pro ekranında gerçekçi bildirim simülasyonu"
               action={
                 <div className="flex rounded-lg bg-shell p-0.5">
                   <button
@@ -1000,107 +848,392 @@ export function NotificationsPage() {
                         : "text-muted hover:text-ink"
                     }`}
                   >
-                    Banner
+                    Banner (Ön Plan)
                   </button>
                 </div>
               }
             >
-              {/* Telefon Ekran Çerçevesi */}
-              <div className="mx-auto max-w-[320px] overflow-hidden rounded-[2.5rem] border-[6px] border-zinc-800 bg-black shadow-2xl">
-                {/* Dynamic Island / Notch */}
-                <div className="relative pt-3 pb-2 flex justify-center bg-black">
-                  <div className="h-5 w-24 rounded-full bg-zinc-900 flex items-center justify-end px-2">
-                    <div className="size-2 rounded-full bg-emerald-950 ring-1 ring-emerald-500/50" />
-                  </div>
-                </div>
+              {/* iPhone 15 Pro Mockup Gövdesi */}
+              <div className="relative mx-auto w-[295px] sm:w-[320px] select-none py-2">
+                {/* Sol Donanım Düğmeleri (Action Button, Volume Up/Down) */}
+                <div className="absolute -left-[3px] top-[95px] h-7 w-[3px] rounded-l-sm bg-gradient-to-r from-[#2c2d30] to-[#4a4d52]" />
+                <div className="absolute -left-[3px] top-[140px] h-12 w-[3px] rounded-l-sm bg-gradient-to-r from-[#2c2d30] to-[#4a4d52]" />
+                <div className="absolute -left-[3px] top-[200px] h-12 w-[3px] rounded-l-sm bg-gradient-to-r from-[#2c2d30] to-[#4a4d52]" />
 
-                {/* Ekran İçi Görseli (Duvar Kağıdı) */}
-                <div className="relative min-h-[360px] bg-gradient-to-b from-[#1a3a2e] via-[#0d221a] to-[#081510] px-4 py-5 text-white flex flex-col justify-between select-none">
-                  {previewMode === "lockscreen" ? (
-                    <>
-                      {/* Saat & Tarih */}
-                      <div className="text-center pt-2">
-                        <div className="text-[11px] font-medium tracking-wide text-white/70">
-                          15 Eylül Salı
-                        </div>
-                        <div className="font-display text-5xl font-light tracking-tight text-white/95">
-                          09:41
+                {/* Sağ Donanım Düğmesi (Güç / Kilit Düğmesi) */}
+                <div className="absolute -right-[3px] top-[150px] h-16 w-[3px] rounded-r-sm bg-gradient-to-l from-[#2c2d30] to-[#4a4d52]" />
+
+                {/* Titanyum Çerçeve */}
+                <div className="relative rounded-[50px] p-[10px] bg-gradient-to-b from-[#3e4145] via-[#242528] to-[#141517] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.65),0_0_0_1px_rgba(255,255,255,0.12)_inset,0_0_25px_rgba(0,0,0,0.4)] ring-1 ring-black/80">
+                  {/* Ekran İçi Konteyner (Ultra İnce Siyah Çerçeve + Cam Yüzey) */}
+                  <div className="relative rounded-[40px] overflow-hidden bg-black ring-1 ring-white/10 min-h-[560px] sm:min-h-[580px] flex flex-col justify-between">
+                    
+                    {/* Takasla Arka Plan Duvar Kağıdı */}
+                    <div
+                      className="absolute inset-0 bg-cover bg-center transition-all duration-700"
+                      style={{ backgroundImage: "url('/images/takasla-wallpaper.webp')" }}
+                    />
+                    
+                    {/* Derinlik & Kontrast Karartma Katmanı */}
+                    <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/25 to-black/75 pointer-events-none" />
+
+                    {/* Ekran Camı Işık Yansıması */}
+                    <div className="absolute inset-0 pointer-events-none bg-gradient-to-tr from-transparent via-white/[0.03] to-white/[0.08]" />
+
+                    {/* Üst Kısım: Dynamic Island & iOS Durum Çubuğu */}
+                    <div className="relative z-30 pt-3 px-5 flex items-center justify-between">
+                      {/* Sol: Saat (09:41) */}
+                      <span className="text-[13px] font-semibold tracking-tight text-white/95 font-sans drop-shadow-sm">
+                        09:41
+                      </span>
+
+                      {/* Orta: Dynamic Island */}
+                      <div className="absolute left-1/2 -translate-x-1/2 top-2.5 z-40 transition-all duration-300">
+                        <div className="h-[25px] w-[96px] bg-black rounded-full flex items-center justify-between px-2.5 shadow-[0_0_1px_1px_rgba(255,255,255,0.08)]">
+                          {/* Ön Kamera Lensi & Mavi Yansıma */}
+                          <div className="size-2.5 rounded-full bg-[#0a0d14] ring-1 ring-[#1b2230] relative flex items-center justify-center">
+                            <div className="size-1 rounded-full bg-[#1e40af]/70" />
+                          </div>
+                          {/* FaceID / Sensör Noktası */}
+                          <div className="size-1.5 rounded-full bg-[#08090c] ring-0.5 ring-zinc-800" />
                         </div>
                       </div>
 
-                      {/* Bildirim Kartı (Kilit Ekranı) */}
-                      <div className="my-auto">
-                        <div className="rounded-2xl bg-white/20 p-3.5 shadow-lg backdrop-blur-md border border-white/20 transition-all">
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2">
-                              {/* Takasla Logo */}
-                              <div className="flex size-5 items-center justify-center rounded-md bg-[#c1ea69] text-[#163228] font-black text-[10px] shadow-xs">
-                                t
+                      {/* Sağ: Sinyal, 5G ve Batarya İkonları */}
+                      <div className="flex items-center gap-1.5 text-white/95 drop-shadow-sm">
+                        {/* Hücresel Sinyal Çubukları */}
+                        <svg className="w-3.5 h-3 fill-current" viewBox="0 0 16 12">
+                          <rect x="0" y="8.5" width="2.5" height="3.5" rx="0.5" />
+                          <rect x="4.2" y="6" width="2.5" height="6" rx="0.5" />
+                          <rect x="8.4" y="3" width="2.5" height="9" rx="0.5" />
+                          <rect x="12.6" y="0.5" width="2.5" height="11.5" rx="0.5" />
+                        </svg>
+
+                        {/* 5G Rozeti */}
+                        <span className="text-[10px] font-bold tracking-tight">5G</span>
+
+                        {/* Batarya Göstergesi */}
+                        <div className="flex items-center">
+                          <div className="w-[18px] h-[9.5px] rounded-[3px] border border-white/85 p-[1px] flex items-center">
+                            <div className="h-full w-[85%] rounded-[1.5px] bg-white" />
+                          </div>
+                          <div className="w-[1.5px] h-[3.5px] bg-white/85 rounded-r-[1px] -ml-[0.5px]" />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* MOD 1: Kilit Ekranı */}
+                    {previewMode === "lockscreen" ? (
+                      <>
+                        {/* Kilit Ekranı Tarih & Saat */}
+                        <div className="pt-6 text-center z-20">
+                          <div className="text-[12.5px] font-medium tracking-wide text-white/85 drop-shadow-sm">
+                            15 Eylül Salı
+                          </div>
+                          <div className="font-display text-[62px] font-light tracking-tight text-white leading-none mt-1 drop-shadow-[0_2px_14px_rgba(0,0,0,0.5)]">
+                            09:41
+                          </div>
+                        </div>
+
+                        {/* Ortadaki Bildirim Kartı (iOS Buzlu Cam Tasarımı) */}
+                        <div className="my-auto px-3.5 z-20">
+                          <div className="rounded-[22px] bg-white/85 dark:bg-[#1c1c1e]/85 backdrop-blur-2xl p-3.5 shadow-[0_12px_32px_rgba(0,0,0,0.35)] border border-white/40 dark:border-white/10 transition-all duration-300">
+                            {/* Başlık Satırı */}
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <img
+                                  src="/images/takasla-icon.png"
+                                  alt="Takasla"
+                                  className="size-5 rounded-[5px] object-cover shadow-xs border border-black/10 shrink-0"
+                                  onError={(e) => {
+                                    (e.currentTarget as HTMLImageElement).src = "/images/takasla-icon.jpg";
+                                  }}
+                                />
+                                <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-900 dark:text-zinc-100 truncate">
+                                  TAKASLA
+                                </span>
                               </div>
-                              <span className="text-[11px] font-bold uppercase tracking-wider text-white/90">
-                                Takasla
-                              </span>
-                            </div>
-                            <span className="text-[10px] font-medium text-white/60">
-                              şimdi
-                            </span>
-                          </div>
-
-                          <div className="mt-1.5">
-                            <h5 className="text-xs font-bold text-white leading-snug">
-                              {title || "Yeni Bildirim Başlığı"}
-                            </h5>
-                            <p className="mt-0.5 text-[11px] leading-relaxed text-white/80 line-clamp-3">
-                              {body ||
-                                "Burada bildirimin açıklaması ve detaylı metni yer alacaktır..."}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Kilit Ekranı Alt İkonlar */}
-                      <div className="flex items-center justify-between px-2 pt-4">
-                        <div className="flex size-9 items-center justify-center rounded-full bg-white/10 backdrop-blur-md">
-                          <span className="text-xs">🔦</span>
-                        </div>
-                        <div className="h-1 w-24 rounded-full bg-white/40" />
-                        <div className="flex size-9 items-center justify-center rounded-full bg-white/10 backdrop-blur-md">
-                          <span className="text-xs">📷</span>
-                        </div>
-                      </div>
-                    </>
-                  ) : (
-                    /* Ön Plan Banner Modu */
-                    <div className="pt-2">
-                      <div className="rounded-2xl bg-[#c1ea69] p-3 text-[#163228] shadow-2xl border border-white/40 transition-all">
-                        <div className="flex items-start gap-2.5">
-                          <div className="flex size-6 shrink-0 items-center justify-center rounded-lg bg-[#163228] text-[#c1ea69] font-black text-xs">
-                            t
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center justify-between">
-                              <h5 className="truncate text-xs font-bold">
-                                {title || "Yeni Bildirim Başlığı"}
-                              </h5>
-                              <span className="text-[10px] text-[#163228]/70">
+                              <span className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400 shrink-0">
                                 şimdi
                               </span>
                             </div>
-                            <p className="mt-0.5 text-[11px] leading-relaxed text-[#163228]/85 line-clamp-2">
-                              {body ||
-                                "Burada ön planda kayarak açılan banner mesajı yer alacaktır."}
-                            </p>
+
+                            {/* Bildirim İçeriği */}
+                            <div className="mt-2 space-y-1">
+                              <h5 className="text-[13px] font-bold text-zinc-950 dark:text-white leading-snug break-words">
+                                {title.trim() || "Yeni Bildirim Başlığı"}
+                              </h5>
+                              <p className="text-[11.5px] leading-relaxed text-zinc-700 dark:text-zinc-300 break-words line-clamp-3">
+                                {body.trim() ||
+                                  "Burada bildirimin açıklaması ve detaylı metni yer alacaktır..."}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Alt Kısım: Fener, Kamera ve Ana Ekran Çubuğu */}
+                        <div className="pb-3 px-5 z-20 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex size-11 items-center justify-center rounded-full bg-black/35 backdrop-blur-xl border border-white/20 text-white shadow-lg active:scale-95 transition-transform">
+                              <Flashlight className="size-5" />
+                            </div>
+                            <div className="flex size-11 items-center justify-center rounded-full bg-black/35 backdrop-blur-xl border border-white/20 text-white shadow-lg active:scale-95 transition-transform">
+                              <Camera className="size-5" />
+                            </div>
+                          </div>
+                          {/* Ana Ekran Çubuğu */}
+                          <div className="flex justify-center pb-1">
+                            <div className="h-[4px] w-32 rounded-full bg-white/80 shadow-xs" />
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      /* MOD 2: Banner (Ön Plan) */
+                      <div className="flex-1 flex flex-col justify-between pt-1 pb-3 px-3.5 z-20">
+                        {/* Dynamic Island altından kayan banner */}
+                        <div className="animate-in slide-in-from-top-4 duration-300 rounded-[22px] bg-[#1c1c1e]/90 backdrop-blur-2xl border border-white/20 p-3 shadow-[0_16px_36px_rgba(0,0,0,0.5)] text-white">
+                          <div className="flex items-start gap-2.5">
+                            <img
+                              src="/images/takasla-icon.png"
+                              alt="Takasla"
+                              className="size-7 rounded-[7px] object-cover shadow-sm border border-white/10 shrink-0 mt-0.5"
+                              onError={(e) => {
+                                (e.currentTarget as HTMLImageElement).src = "/images/takasla-icon.jpg";
+                              }}
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center justify-between gap-1">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-300">
+                                  TAKASLA
+                                </span>
+                                <span className="text-[10px] text-zinc-400">şimdi</span>
+                              </div>
+                              <h5 className="text-[12.5px] font-bold text-white leading-snug break-words mt-0.5">
+                                {title.trim() || "Yeni Bildirim Başlığı"}
+                              </h5>
+                              <p className="mt-0.5 text-[11px] leading-relaxed text-zinc-300 break-words line-clamp-2">
+                                {body.trim() ||
+                                  "Burada ön planda kayarak açılan banner mesajı yer alacaktır."}
+                              </p>
+                            </div>
+                          </div>
+                          {/* Banner Tutamağı */}
+                          <div className="mt-2 flex justify-center">
+                            <div className="h-[3px] w-8 rounded-full bg-white/30" />
+                          </div>
+                        </div>
+
+                        {/* Orta Bilgilendirme Rozeti */}
+                        <div className="text-center my-auto space-y-2">
+                          <div className="inline-flex items-center gap-1.5 rounded-full bg-black/40 backdrop-blur-md px-3 py-1 text-[11px] text-white/80 border border-white/10">
+                            <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
+                            <span>Uygulama Açıkken Ön Plan Bannerı</span>
+                          </div>
+                        </div>
+
+                        {/* Alt Dock & Ana Ekran Çubuğu */}
+                        <div className="space-y-3">
+                          <div className="rounded-[24px] bg-white/20 backdrop-blur-2xl border border-white/20 p-2 flex items-center justify-around">
+                            <div className="size-10 rounded-[12px] bg-emerald-700/80 shadow-sm flex items-center justify-center text-white text-base">
+                              📞
+                            </div>
+                            <div className="size-10 rounded-[12px] bg-sky-500/80 shadow-sm flex items-center justify-center text-white text-base">
+                              🌐
+                            </div>
+                            <div className="size-10 rounded-[12px] bg-emerald-500/80 shadow-sm flex items-center justify-center text-white text-base">
+                              💬
+                            </div>
+                            <div className="size-10 rounded-[12px] bg-zinc-900/90 shadow-sm flex items-center justify-center text-white text-base overflow-hidden border border-white/15">
+                              <img
+                                src="/images/takasla-icon.png"
+                                alt="Takasla"
+                                className="size-full object-cover"
+                                onError={(e) => {
+                                  (e.currentTarget as HTMLImageElement).src = "/images/takasla-icon.jpg";
+                                }}
+                              />
+                            </div>
+                          </div>
+                          {/* Ana Ekran Çubuğu */}
+                          <div className="flex justify-center pb-1">
+                            <div className="h-[4px] w-32 rounded-full bg-white/80 shadow-xs" />
                           </div>
                         </div>
                       </div>
-                      <div className="mt-12 text-center text-xs text-white/40">
-                        Uygulama Açıkken Ön Plan Banner Görünümü
-                      </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
             </Panel>
+          </div>
+        </div>
+
+        {/* Hazır Şablonlar Paneli */}
+        <div id="hazir-sablonlar" className="scroll-mt-6">
+          <Panel
+            title="Hazır Bildirim Şablonları"
+            subtitle="Bayramlar, milli günler, başsağlığı veya sistem duyuruları için tek tıkla mesajı doldurun"
+          >
+            {/* Kategori Filtre Butonları */}
+            <div className="flex flex-wrap items-center gap-1.5 border-b border-line/60 pb-3 mb-4">
+              <button
+                type="button"
+                onClick={() => setActiveCategory("all")}
+                className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                  activeCategory === "all"
+                    ? "bg-forest text-card"
+                    : "bg-shell/80 text-forest hover:bg-shell"
+                }`}
+              >
+                Tüm Şablonlar ({TEMPLATES.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveCategory("bayram")}
+                className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                  activeCategory === "bayram"
+                    ? "bg-forest text-card"
+                    : "bg-shell/80 text-forest hover:bg-shell"
+                }`}
+              >
+                🍬 Bayramlar & Kutlamalar
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveCategory("yas")}
+                className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                  activeCategory === "yas"
+                    ? "bg-forest text-card"
+                    : "bg-shell/80 text-forest hover:bg-shell"
+                }`}
+              >
+                🖤 Başsağlığı & Taziye
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveCategory("sistem")}
+                className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                  activeCategory === "sistem"
+                    ? "bg-forest text-card"
+                    : "bg-shell/80 text-forest hover:bg-shell"
+                }`}
+              >
+                ⚙️ Güncelleme & Bakım
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveCategory("kampanya")}
+                className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                  activeCategory === "kampanya"
+                    ? "bg-forest text-card"
+                    : "bg-shell/80 text-forest hover:bg-shell"
+                }`}
+              >
+                ✨ Takas & Kampanyalar
+              </button>
+            </div>
+
+            {/* Şablon Kartları Grid */}
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {filteredTemplates.map((t) => {
+                const isSelected = selectedTemplateId === t.id;
+                return (
+                  <div
+                    key={t.id}
+                    onClick={() => handleSelectTemplate(t)}
+                    className={`group relative flex cursor-pointer flex-col justify-between rounded-xl border p-3 transition-all hover:border-forest/40 hover:bg-shell/50 hover:shadow-sm ${
+                      isSelected
+                        ? "border-forest bg-forest/5 ring-2 ring-forest/20"
+                        : "border-line/60 bg-card"
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xl">{t.icon}</span>
+                        {isSelected ? (
+                          <span className="flex size-5 items-center justify-center rounded-full bg-forest text-card">
+                            <Check className="size-3" />
+                          </span>
+                        ) : null}
+                      </div>
+                      <h4 className="mt-2 text-xs font-bold text-ink group-hover:text-forest">
+                        {t.label}
+                      </h4>
+                      <p className="mt-1 line-clamp-2 text-[11px] text-muted">
+                        {t.body}
+                      </p>
+                    </div>
+                    <div className="mt-2.5 flex items-center gap-1 text-[10px] font-semibold text-forest">
+                      <span>Şablonu Seç</span>
+                      <ChevronRight className="size-3 transition-transform group-hover:translate-x-0.5" />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </Panel>
+        </div>
+
+        {/* KPI & Sistem İstatistik Kartları */}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+          <div className="rounded-2xl border border-line/60 bg-card p-4 shadow-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-muted">Kayıtlı Cihazlar</span>
+              <div className="flex size-7 items-center justify-center rounded-lg bg-accent/20 text-accent-fg">
+                <Smartphone className="size-4" />
+              </div>
+            </div>
+            <p className="mt-2 text-2xl font-bold tracking-tight text-ink">
+              {stats.totalTokens}
+            </p>
+            <p className="mt-0.5 text-[11px] text-muted">
+              {stats.iosDevices} iOS · {stats.androidDevices} Android
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-line/60 bg-card p-4 shadow-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-muted">Takasla Üyeleri</span>
+              <div className="flex size-7 items-center justify-center rounded-lg bg-forest/10 text-forest">
+                <Users className="size-4" />
+              </div>
+            </div>
+            <p className="mt-2 text-2xl font-bold tracking-tight text-ink">
+              {stats.totalUsers}
+            </p>
+            <p className="mt-0.5 text-[11px] text-forest font-medium">
+              Aktif Profil Sayısı
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-line/60 bg-card p-4 shadow-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-muted">Yayın Kanalı</span>
+              <div className="flex size-7 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-700">
+                <Radio className="size-4" />
+              </div>
+            </div>
+            <p className="mt-2 text-xl font-bold tracking-tight text-ink">
+              FCM HTTP v1
+            </p>
+            <p className="mt-0.5 text-[11px] text-muted">
+              Topic: <span className="font-semibold">all_users</span>
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-line/60 bg-card p-4 shadow-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-muted">Gönderilenler</span>
+              <div className="flex size-7 items-center justify-center rounded-lg bg-amber-500/15 text-amber-700">
+                <Clock className="size-4" />
+              </div>
+            </div>
+            <p className="mt-2 text-2xl font-bold tracking-tight text-ink">
+              {history.length}
+            </p>
+            <p className="mt-0.5 text-[11px] text-muted">
+              Toplam Duyuru Kaydı
+            </p>
           </div>
         </div>
 
