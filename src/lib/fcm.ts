@@ -209,6 +209,8 @@ export async function sendTargetedAnnouncement({
         custom_body: cleanBody,
         title: cleanTitle,
         body: cleanBody,
+        // "Uygulama İçi Bildirim Kutusu" seçimi sunucuya iletilir (kapalıysa kutuya kaydedilmez)
+        save_in_app: inAppNotification,
       },
     });
 
