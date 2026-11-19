@@ -41,6 +41,8 @@ function initialTabFromUrl(): Tab {
   if (sekme === "onay-bekleyen") return "pending";
   if (sekme === "yayinda") return "approved";
   if (sekme === "tumu") return "all";
+  if (sekme === "revizyon") return "revision_requested";
+  if (sekme === "reddedilen") return "rejected";
   return "pending";
 }
 

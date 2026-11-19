@@ -1,57 +1,63 @@
-import { ArrowUpRight, Package, Repeat, ShieldAlert, Users, Clock, CheckCircle2, AlertCircle, Sparkles } from "lucide-react";
+import { CheckCircle2, ChevronRight, Inbox, Lightbulb, PenLine, ShieldAlert } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { useEffect, useMemo } from "react";
 import { useAdminStore } from "@/lib/store";
-import { AdminShell, Panel, StatusChip } from "./admin-shell";
-import { Button } from "./ui/button";
+import { cn } from "@/lib/utils";
+import { AdminShell } from "./admin-shell";
+import { ListingStatusBadge, ListingThumb } from "./listing-detail";
+import { handle, UserAvatar } from "./user-detail-sheet";
 
-function StatCard({
-  icon: Icon,
-  value,
+/** İlanlar sayfasını belirli bir sekmeyle açan bağlantı */
+function listingsLink(sekme: string) {
+  return { to: "/ilanlar" as const, search: { sekme } as never };
+}
+
+function Kpi({
   label,
-  sublabel,
-  tone = "default",
-  to,
+  value,
+  hint,
+  link,
 }: {
-  icon: React.ComponentType<{ className?: string }>;
-  value: number;
   label: string;
-  sublabel?: string;
-  tone?: "default" | "good" | "warn" | "bad";
-  to?: string;
+  value: number | string;
+  hint?: string;
+  link: React.ComponentProps<typeof Link>;
 }) {
-  const toneClasses = {
-    default: "text-forest border-line bg-shell/40",
-    good: "text-emerald-700 bg-emerald-50 border-emerald-200",
-    warn: "text-amber-700 bg-amber-50 border-amber-200",
-    bad: "text-rose-700 bg-rose-50 border-rose-200",
-  }[tone];
-
-  const card = (
-    <div className="group flex items-start gap-3.5 rounded-2xl border border-line bg-card p-4 transition-all duration-150 hover:bg-shell/70 hover:shadow-sm hover:border-forest/40 cursor-pointer">
-      <span className={`grid size-11 shrink-0 place-items-center rounded-xl border ${toneClasses} group-hover:scale-105 transition-transform`}>
-        <Icon className="size-5" />
+  return (
+    <Link
+      {...link}
+      className="group flex flex-col rounded-2xl border border-line bg-card p-4 transition-colors hover:border-forest/40 hover:bg-shell/40"
+    >
+      <span className="flex items-center justify-between text-xs font-medium text-muted">
+        {label}
+        <ChevronRight className="size-4 opacity-50 transition-opacity group-hover:opacity-100" />
       </span>
-      <div className="min-w-0 flex-1">
-        <p className="text-2xl font-bold tabular-nums tracking-tight text-ink">{value}</p>
-        <p className="text-sm font-medium text-ink/80 flex items-center justify-between">
-          <span>{label}</span>
-          <ArrowUpRight className="size-3.5 text-muted opacity-0 group-hover:opacity-100 transition-opacity" />
-        </p>
-        {sublabel ? <p className="mt-0.5 text-xs text-muted">{sublabel}</p> : null}
-      </div>
-    </div>
+      <span className="mt-2 text-2xl font-semibold tabular-nums tracking-tight text-ink">{value}</span>
+      {hint ? <span className="mt-0.5 text-xs text-muted">{hint}</span> : null}
+    </Link>
   );
+}
 
-  if (to) {
-    return (
-      <Link to={to} className="block transition-transform active:scale-[0.98]">
-        {card}
-      </Link>
-    );
-  }
-
-  return card;
+function SectionCard({
+  title,
+  action,
+  children,
+  className,
+}: {
+  title: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <section className={cn("overflow-hidden rounded-2xl border border-line bg-card", className)}>
+      <header className="flex items-center justify-between gap-2 border-b border-line px-4 py-3">
+        <h2 className="text-sm font-semibold text-ink">{title}</h2>
+        {action}
+      </header>
+      {children}
+    </section>
+  );
 }
 
 export function OverviewPage() {
@@ -69,296 +75,183 @@ export function OverviewPage() {
   const pendingListings = listings.filter((l) => l.status === "pending");
   const activeListings = listings.filter((l) => l.status === "approved" || l.status === "yayinda");
   const revisionListings = listings.filter((l) => l.status === "revision_requested");
-  const rejectedListings = listings.filter((l) => l.status === "rejected");
   const openReports = reports.filter((r) => r.status === "acik" || r.status === "inceleniyor");
   const openSuggestions = suggestions.filter((s) => s.status === "yeni" || s.status === "degerlendiriliyor");
 
   const recentListings = useMemo(
-    () =>
-      listings
-        .filter(
-          (l) =>
-            l.status !== "completed" &&
-            l.status !== "takaslandi" &&
-            l.status !== "deleted"
-        )
-        .slice(0, 5),
-    [listings]
+    () => listings.filter((l) => l.status !== "completed" && l.status !== "takaslandi" && l.status !== "deleted").slice(0, 5),
+    [listings],
   );
 
+  const attention = [
+    {
+      key: "pending",
+      icon: Inbox,
+      label: "Onay bekleyen ilan",
+      count: pendingListings.length,
+      link: listingsLink("onay-bekleyen"),
+      urgent: true,
+    },
+    {
+      key: "reports",
+      icon: ShieldAlert,
+      label: "Açık şikayet",
+      count: openReports.length,
+      link: { to: "/sikayetler" as const },
+      urgent: true,
+    },
+    {
+      key: "revision",
+      icon: PenLine,
+      label: "Düzenleme bekleyen ilan",
+      count: revisionListings.length,
+      link: listingsLink("revizyon"),
+      urgent: false,
+    },
+    {
+      key: "suggestions",
+      icon: Lightbulb,
+      label: "Değerlendirilecek öneri",
+      count: openSuggestions.length,
+      link: { to: "/oneriler" as const },
+      urgent: false,
+    },
+  ];
+  const attentionTotal = attention.reduce((n, a) => n + a.count, 0);
+
   return (
-    <AdminShell
-      kicker="Takasla — Yönetim Merkezi"
-      title={
-        <>
-          Parayla değil,
-          <br />
-          takasla.
-        </>
-      }
-      actions={
-        <div className="flex flex-wrap gap-2">
-          <Button variant="pill" asChild>
-            <Link to="/ilanlar">İlanları İncele</Link>
-          </Button>
-          <Button variant="dark" asChild>
-            <Link to="/kullanicilar">Kullanıcı Yönetimi</Link>
-          </Button>
-        </div>
-      }
-    >
-      <div className="grid gap-5">
-        {/* TAKASLA UYGULAMA ÖZETİ */}
-        <Panel
-          title="Takasla Uygulama Özeti"
-          subtitle="Mobil uygulama canlı istatistikleri ve anlık platform verileri"
+    <AdminShell kicker="Takasla yönetim paneli" title="Genel bakış" compact>
+      <div className="space-y-5">
+        {/* BEKLEYEN İŞLER */}
+        <SectionCard
+          title="Bekleyen işler"
           action={
-            <Button size="sm" variant="ghost" asChild>
-              <Link to="/analitik" className="flex items-center gap-1">
-                Detaylı Analitik <ArrowUpRight className="size-4" />
-              </Link>
-            </Button>
+            attentionTotal > 0 ? (
+              <span className="text-xs text-muted">{attentionTotal} iş</span>
+            ) : null
           }
         >
-          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
-            <StatCard
-              icon={Users}
-              value={users.length}
-              label="Kayıtlı Kullanıcı"
-              sublabel="Aktif mobil hesaplar"
-              tone="good"
-              to="/kullanicilar"
-            />
-            <StatCard
-              icon={Package}
-              value={listings.length}
-              label="Toplam İlan"
-              sublabel={`${activeListings.length} yayında${pendingListings.length > 0 ? ` · ${pendingListings.length} onay bekliyor` : ""}`}
-              tone={pendingListings.length > 0 ? "warn" : "default"}
-              to="/ilanlar"
-            />
-            <StatCard
-              icon={ShieldAlert}
-              value={openReports.length}
-              label="Açık Şikayet"
-              sublabel={openReports.length > 0 ? "İnceleme bekliyor" : "Şikayet bulunmuyor"}
-              tone={openReports.length > 0 ? "bad" : "good"}
-              to="/sikayetler"
-            />
-          </div>
+          {attentionTotal === 0 ? (
+            <div className="flex items-center gap-3 px-4 py-5 text-sm text-muted">
+              <CheckCircle2 className="size-5 text-forest" />
+              Bekleyen iş yok. Her şey güncel.
+            </div>
+          ) : (
+            <ul className="divide-y divide-line">
+              {attention.map((a) => {
+                const Icon = a.icon;
+                return (
+                  <li key={a.key}>
+                    <Link
+                      {...a.link}
+                      className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-shell/60"
+                    >
+                      <span
+                        className={cn(
+                          "grid size-9 shrink-0 place-items-center rounded-lg",
+                          a.count > 0 && a.urgent ? "bg-warn-soft text-warn" : "bg-shell text-muted",
+                        )}
+                      >
+                        <Icon className="size-4" />
+                      </span>
+                      <span className={cn("flex-1 text-sm", a.count > 0 ? "text-ink" : "text-muted")}>{a.label}</span>
+                      <span
+                        className={cn(
+                          "min-w-7 rounded-full px-2 py-0.5 text-center text-xs font-semibold tabular-nums",
+                          a.count > 0 && a.urgent
+                            ? "bg-warn text-white"
+                            : a.count > 0
+                              ? "bg-forest text-card"
+                              : "bg-shell text-muted",
+                        )}
+                      >
+                        {a.count}
+                      </span>
+                      <ChevronRight className="size-4 text-muted" />
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </SectionCard>
 
-          <div className="mt-4 grid grid-cols-2 gap-3.5 sm:grid-cols-3 lg:grid-cols-5">
-            <Link
-              to="/ilanlar"
-              className="group rounded-xl bg-shell/30 p-3 ring-1 ring-line transition-all hover:bg-shell/70 hover:ring-forest/40"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted">Yayındaki İlanlar</span>
-                <CheckCircle2 className="size-3.5 text-forest opacity-0 group-hover:opacity-100 transition-opacity" />
-              </div>
-              <p className="mt-1 text-lg font-semibold tabular-nums text-forest">{activeListings.length}</p>
-            </Link>
+        {/* SAYILAR */}
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <Kpi label="Kullanıcı" value={users.length} hint="Kayıtlı hesap" link={{ to: "/kullanicilar" }} />
+          <Kpi label="Yayındaki ilan" value={activeListings.length} hint={`${listings.length} ilan toplam`} link={listingsLink("yayinda")} />
+          <Kpi
+            label="Tamamlanan takas"
+            value={swapStats.completedOffers}
+            hint="İki tarafın onayıyla"
+            link={listingsLink("takaslananlar")}
+          />
+          <Kpi
+            label="Bekleyen teklif"
+            value={swapStats.pendingOffers}
+            hint={`${swapStats.totalOffers} teklif toplam`}
+            link={{ to: "/analitik" }}
+          />
+        </div>
 
-            <Link
-              to="/ilanlar"
-              className="group rounded-xl bg-shell/30 p-3 ring-1 ring-line transition-all hover:bg-shell/70 hover:ring-amber-500/40"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted">Onay Bekleyenler</span>
-                <Clock className="size-3.5 text-amber-600 opacity-0 group-hover:opacity-100 transition-opacity" />
-              </div>
-              <p className="mt-1 text-lg font-semibold tabular-nums text-amber-600">{pendingListings.length}</p>
-            </Link>
-
-            <Link
-              to="/ilanlar"
-              className="group rounded-xl bg-shell/30 p-3 ring-1 ring-line transition-all hover:bg-shell/70 hover:ring-rose-500/40"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted">Reddedilen İlanlar</span>
-                <AlertCircle className="size-3.5 text-rose-600 opacity-0 group-hover:opacity-100 transition-opacity" />
-              </div>
-              <p className="mt-1 text-lg font-semibold tabular-nums text-rose-600">{rejectedListings.length}</p>
-            </Link>
-
-            <a
-              href="/ilanlar?sekme=takaslananlar"
-              className="group rounded-xl bg-shell/30 p-3 ring-1 ring-line transition-all hover:bg-shell/70 hover:ring-emerald-500/40"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted">Tamamlanan Takas</span>
-                <ArrowUpRight className="size-3.5 text-emerald-600 opacity-0 group-hover:opacity-100 transition-opacity" />
-              </div>
-              <p className="mt-1 text-lg font-semibold tabular-nums text-emerald-600">{swapStats.completedOffers}</p>
-            </a>
-
-            <Link
-              to="/oneriler"
-              className="group rounded-xl bg-shell/30 p-3 ring-1 ring-line transition-all hover:bg-shell/70 hover:ring-emerald-500/40"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted">Kullanıcı Önerileri</span>
-                <Sparkles className="size-3.5 text-emerald-600 opacity-0 group-hover:opacity-100 transition-opacity" />
-              </div>
-              <p className="mt-1 text-lg font-semibold tabular-nums text-emerald-600">{openSuggestions.length} açık</p>
-            </Link>
-          </div>
-        </Panel>
-
-        {/* 2 SÜTUN: SON İLANLAR & SON KULLANICILAR */}
-        <div className="grid gap-5 lg:grid-cols-12">
-          {/* Son İlanlar */}
-          <Panel
-            title="Son Eklenen İlanlar"
-            subtitle="Mobil uygulamadan eklenen son ürünler"
+        <div className="grid gap-5 lg:grid-cols-2">
+          {/* SON İLANLAR */}
+          <SectionCard
+            title="Son eklenen ilanlar"
             action={
-              <Button size="sm" variant="ghost" asChild>
-                <Link to="/ilanlar" className="flex items-center gap-1">
-                  Tümü <ArrowUpRight className="size-4" />
-                </Link>
-              </Button>
+              <Link {...listingsLink("tumu")} className="text-xs font-medium text-forest hover:underline">
+                Tümü
+              </Link>
             }
-            className="lg:col-span-7"
           >
             {recentListings.length === 0 ? (
-              <p className="py-8 text-center text-sm text-muted">Henüz listelenecek ilan bulunmuyor.</p>
+              <p className="px-4 py-8 text-center text-sm text-muted">Henüz ilan yok.</p>
             ) : (
-              <>
-                {/* Mobil Kart Görünümü */}
-                <div className="space-y-2.5 sm:hidden">
-                  {recentListings.map((l) => (
-                    <div key={l.id} className="rounded-xl border border-line/60 bg-shell/20 p-3 space-y-2">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="font-semibold text-sm text-ink truncate">{l.title}</p>
-                          <p className="text-xs text-muted mt-0.5">{l.city} · {l.category}</p>
-                        </div>
-                        <StatusChip
-                          tone={
-                            l.status === "pending"
-                              ? "warn"
-                              : l.status === "revision_requested"
-                                ? "warn"
-                                : l.status === "approved" || l.status === "yayinda"
-                                  ? "ok"
-                                  : l.status === "completed" || l.status === "takaslandi"
-                                    ? "ok"
-                                    : l.status === "deleted"
-                                      ? "mute"
-                                      : "bad"
-                          }
-                        >
-                          {l.status === "pending"
-                            ? "Onay Bekliyor"
-                            : l.status === "revision_requested"
-                              ? "Revize İstendi"
-                              : l.status === "approved" || l.status === "yayinda"
-                                ? "Yayında"
-                                : l.status === "completed" || l.status === "takaslandi"
-                                  ? "Takaslandı"
-                                  : l.status === "deleted"
-                                    ? "Silindi"
-                                    : "Reddedildi"}
-                        </StatusChip>
-                      </div>
-                      <p className="text-xs text-muted border-t border-line/50 pt-1.5 flex items-center justify-between">
-                        <span>Sahibi:</span>
-                        <strong className="text-ink font-semibold">{l.ownerName}</strong>
+              <ul className="divide-y divide-line">
+                {recentListings.map((l) => (
+                  <li key={l.id} className="flex items-center gap-3 px-4 py-2.5">
+                    <ListingThumb listing={l} className="size-10" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-ink">{l.title}</p>
+                      <p className="truncate text-xs text-muted">
+                        {l.ownerName} · {l.city}
                       </p>
                     </div>
-                  ))}
-                </div>
-
-                {/* Masaüstü Tablo Görünümü */}
-                <div className="hidden sm:block overflow-x-auto min-w-0">
-                  <table className="w-full text-left text-sm">
-                    <thead className="text-xs uppercase text-muted">
-                      <tr className="border-b border-line">
-                        <th className="pb-3 font-medium">İlan Başlığı</th>
-                        <th className="pb-3 font-medium">Sahibi</th>
-                        <th className="pb-3 font-medium">Kategori</th>
-                        <th className="pb-3 font-medium">Durum</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-line/60">
-                      {recentListings.map((l) => (
-                        <tr key={l.id} className="hover:bg-shell/30 transition-colors">
-                          <td className="py-3 font-medium text-ink">
-                            <p className="line-clamp-1">{l.title}</p>
-                            <span className="text-xs font-normal text-muted">{l.city}</span>
-                          </td>
-                          <td className="py-3 text-muted">{l.ownerName}</td>
-                          <td className="py-3 text-muted">{l.category}</td>
-                          <td className="py-3">
-                            {l.status === "pending" ? (
-                              <StatusChip tone="warn">Onay Bekliyor</StatusChip>
-                            ) : l.status === "revision_requested" ? (
-                              <StatusChip tone="warn">Revize İstendi</StatusChip>
-                            ) : l.status === "approved" || l.status === "yayinda" ? (
-                              <StatusChip tone="ok">Yayında</StatusChip>
-                            ) : l.status === "completed" || l.status === "takaslandi" ? (
-                              <StatusChip tone="ok">Takaslandı</StatusChip>
-                            ) : l.status === "deleted" ? (
-                              <StatusChip tone="mute">Silindi</StatusChip>
-                            ) : (
-                              <StatusChip tone="bad">Reddedildi</StatusChip>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            )}
-          </Panel>
-
-          {/* Son Kayıt Olan Kullanıcılar */}
-          <Panel
-            title="Son Kayıt Olanlar"
-            subtitle="Mobil uygulamaya yeni katılan üyeler"
-            action={
-              <Button size="sm" variant="ghost" asChild>
-                <Link to="/kullanicilar" className="flex items-center gap-1">
-                  Tümü <ArrowUpRight className="size-4" />
-                </Link>
-              </Button>
-            }
-            className="lg:col-span-5"
-          >
-            {users.length === 0 ? (
-              <p className="py-8 text-center text-sm text-muted">Kayıtlı üye bulunamadı.</p>
-            ) : (
-              <ul className="divide-y divide-line/60">
-                {users.slice(0, 5).map((u) => (
-                  <li key={u.id} className="flex items-center justify-between py-3">
-                    <div className="flex items-center gap-3">
-                      <img
-                        src={u.avatar}
-                        alt={u.name}
-                        className="size-10 rounded-full object-cover ring-1 ring-line"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = "/images/takasla-icon.jpg";
-                        }}
-                      />
-                      <div>
-                        <p className="font-semibold text-ink leading-tight">{u.name}</p>
-                        <p className="text-xs text-muted font-mono">
-                          {u.username}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <span className="inline-flex rounded-full bg-shell px-2.5 py-0.5 text-xs font-medium text-ink">
-                        {u.listingsCount} ilan
-                      </span>
-                      <p className="mt-1 text-[11px] text-muted">{u.city}</p>
-                    </div>
+                    <ListingStatusBadge status={l.status} />
                   </li>
                 ))}
               </ul>
             )}
-          </Panel>
+          </SectionCard>
+
+          {/* SON KULLANICILAR */}
+          <SectionCard
+            title="Son kayıt olanlar"
+            action={
+              <Link to="/kullanicilar" className="text-xs font-medium text-forest hover:underline">
+                Tümü
+              </Link>
+            }
+          >
+            {users.length === 0 ? (
+              <p className="px-4 py-8 text-center text-sm text-muted">Kayıtlı üye yok.</p>
+            ) : (
+              <ul className="divide-y divide-line">
+                {users.slice(0, 5).map((u) => (
+                  <li key={u.id} className="flex items-center gap-3 px-4 py-2.5">
+                    <UserAvatar user={u} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-ink">{u.name}</p>
+                      <p className="truncate text-xs text-muted">
+                        {handle(u.username)} · {u.city}
+                      </p>
+                    </div>
+                    <span className="shrink-0 text-xs text-muted">{u.listingsCount} ilan</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </SectionCard>
         </div>
       </div>
     </AdminShell>
