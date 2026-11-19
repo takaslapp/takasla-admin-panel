@@ -27,16 +27,10 @@ export function handle(username?: string) {
   return username.startsWith("@") ? username : `@${username}`;
 }
 
-/**
- * Bildirim sayfasına geçer; kullanıcının ID'sini panoya kopyalar
- * (bildirim sayfasında tek kullanıcıya gönderim için).
- */
+/** Bildirim sayfasını bu kullanıcı alıcı olarak seçili halde açar. */
 export function goToDirectNotification(user: User) {
-  navigator.clipboard.writeText(user.id).catch(() => {});
-  toast.success(`${user.name} kullanıcısının ID'si kopyalandı. Bildirim sayfası açılıyor…`);
-  setTimeout(() => {
-    window.location.href = `/bildirimler`;
-  }, 400);
+  toast.info(`${user.name} için bildirim sayfası açılıyor…`);
+  window.location.href = `/bildirimler?kullanici=${encodeURIComponent(user.id)}`;
 }
 
 interface Props {
