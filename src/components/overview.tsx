@@ -181,8 +181,8 @@ export function OverviewPage() {
               <p className="mt-1 text-lg font-semibold tabular-nums text-rose-600">{rejectedListings.length}</p>
             </Link>
 
-            <Link
-              to="/analitik"
+            <a
+              href="/ilanlar?sekme=takaslananlar"
               className="group rounded-xl bg-shell/30 p-3 ring-1 ring-line transition-all hover:bg-shell/70 hover:ring-emerald-500/40"
             >
               <div className="flex items-center justify-between">
@@ -190,7 +190,7 @@ export function OverviewPage() {
                 <ArrowUpRight className="size-3.5 text-emerald-600 opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
               <p className="mt-1 text-lg font-semibold tabular-nums text-emerald-600">{swapStats.completedOffers}</p>
-            </Link>
+            </a>
 
             <Link
               to="/oneriler"

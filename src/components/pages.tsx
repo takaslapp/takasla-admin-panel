@@ -901,7 +901,18 @@ export function ListingsPage() {
   const completedSwapPairs = useAdminStore((s) => s.completedSwapPairs);
 
   const [q, setQ] = useState("");
-  const [activeTab, setActiveTab] = useState<"all" | "pending" | "approved" | "completed" | "revision_requested" | "rejected">("all");
+  // Genel bakıştan "?sekme=takaslananlar" ile gelinirse ilgili sekme açılır
+  const initialTab = (() => {
+    if (typeof window === "undefined") return "all" as const;
+    const sekme = new URLSearchParams(window.location.search).get("sekme");
+    if (sekme === "takaslananlar") return "completed" as const;
+    if (sekme === "devam-eden") return "ongoing" as const;
+    if (sekme === "onay-bekleyen") return "pending" as const;
+    return "all" as const;
+  })();
+  const [activeTab, setActiveTab] = useState<
+    "all" | "pending" | "approved" | "completed" | "ongoing" | "revision_requested" | "rejected"
+  >(initialTab);
 
   // Toplu Seçim Durumu
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -940,10 +951,14 @@ export function ListingsPage() {
   );
   const pendingCount = useMemo(() => listings.filter((l) => l.status === "pending").length, [listings]);
   const approvedCount = useMemo(() => listings.filter((l) => l.status === "approved" || l.status === "yayinda").length, [listings]);
-  const completedCount = useMemo(() => completedSwapPairs.length, [completedSwapPairs]);
+  // Tamamlanan takaslar ile kabul edilmiş ama henüz bitmemiş (devam eden) takaslar ayrı tutulur
+  const finishedPairs = useMemo(() => completedSwapPairs.filter((p) => p.status === "completed"), [completedSwapPairs]);
+  const ongoingPairs = useMemo(() => completedSwapPairs.filter((p) => p.status !== "completed"), [completedSwapPairs]);
+  const completedCount = finishedPairs.length;
+  const ongoingCount = ongoingPairs.length;
   const revisionCount = useMemo(() => listings.filter((l) => l.status === "revision_requested").length, [listings]);
   const rejectedCount = useMemo(() => listings.filter((l) => l.status === "rejected").length, [listings]);
-  const totalDisplayCount = uncompletedListings.length + completedSwapPairs.length;
+  const totalDisplayCount = uncompletedListings.length + finishedPairs.length;
 
   // Takaslananları birleşik gruplayan gösterim listesi (Display Items)
   type DisplayItem =
@@ -991,7 +1006,13 @@ export function ListingsPage() {
     }
 
     if (activeTab === "completed") {
-      return completedSwapPairs
+      return finishedPairs
+        .filter(matchPairSearch)
+        .map((pair) => ({ kind: "pair" as const, pair }));
+    }
+
+    if (activeTab === "ongoing") {
+      return ongoingPairs
         .filter(matchPairSearch)
         .map((pair) => ({ kind: "pair" as const, pair }));
     }
@@ -1002,12 +1023,13 @@ export function ListingsPage() {
       .filter(matchSingleSearch)
       .map((listing) => ({ kind: "single" as const, listing }));
 
-    const pairs: DisplayItem[] = completedSwapPairs
+    // Devam eden takastaki ilanlar zaten tekil ilan olarak listede; burada yalnızca tamamlananlar eşleşir
+    const pairs: DisplayItem[] = finishedPairs
       .filter(matchPairSearch)
       .map((pair) => ({ kind: "pair" as const, pair }));
 
     return [...singles, ...pairs];
-  }, [listings, completedSwapPairs, uncompletedListings, activeTab, q]);
+  }, [listings, finishedPairs, ongoingPairs, uncompletedListings, activeTab, q]);
 
   // Toplu Seçim Hesaplamaları (Sadece tekil aktif ilanlar seçilebilir)
   const selectableFiltered = useMemo(
@@ -1220,6 +1242,22 @@ export function ListingsPage() {
                 {completedCount}
               </span>
             </button>
+            {ongoingCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setActiveTab("ongoing")}
+                className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                  activeTab === "ongoing"
+                    ? "bg-forest text-white shadow-xs"
+                    : "bg-card text-ink/80 hover:bg-shell border border-line"
+                }`}
+              >
+                <span>Devam Eden Takaslar</span>
+                <span className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${activeTab === "ongoing" ? "bg-white/20 text-white" : "bg-shell text-muted"}`}>
+                  {ongoingCount}
+                </span>
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setActiveTab("revision_requested")}
@@ -1298,8 +1336,8 @@ export function ListingsPage() {
         )}
 
         <Panel
-          title={activeTab === "completed" ? "Birleşik Takas Listesi" : "İlan Listesi"}
-          subtitle={`${displayItems.length} ${activeTab === "completed" ? "tamamlanan birleşik takas" : "kayıt"} listeleniyor${selectedIds.length > 0 ? ` · ${selectedIds.length} seçildi` : ""}`}
+          title={activeTab === "completed" ? "Tamamlanan Takaslar" : activeTab === "ongoing" ? "Devam Eden Takaslar" : "İlan Listesi"}
+          subtitle={`${displayItems.length} ${activeTab === "completed" ? "tamamlanan takas" : activeTab === "ongoing" ? "devam eden takas" : "kayıt"} listeleniyor${selectedIds.length > 0 ? ` · ${selectedIds.length} seçildi` : ""}`}
           action={
             <div className="flex items-center gap-2">
               {selectableFiltered.length > 0 && (
@@ -1319,7 +1357,7 @@ export function ListingsPage() {
             value={q}
             onChange={setQ}
             placeholder={
-              activeTab === "completed"
+              activeTab === "completed" || activeTab === "ongoing"
                 ? "Takaslanan ürün, sahip adı, şehir veya kategori ara..."
                 : "İlan başlığı, sahibi, kategori, şehir veya takas tercihi ara..."
             }
