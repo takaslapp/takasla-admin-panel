@@ -3962,28 +3962,48 @@ export function AnalyticsPage() {
     fetchDashboardData();
   }, [fetchDashboardData]);
 
-  // Kategori dağılımını gerçek ilanlardan hesapla
+  // Kategori dağılımı (kaldırılan ilanlar hariç, gerçek veri; sahte yedek veri yok)
   const categoryCounts: Record<string, number> = {};
   for (const l of listings) {
+    if (l.status === "deleted") continue;
     const cat = l.category || "Diğer";
     categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
   }
-  const categoryChartData = Object.entries(categoryCounts).map(([name, n]) => ({ name, n }));
-  if (categoryChartData.length === 0) {
-    categoryChartData.push(
-      { name: "Elektronik", n: 3 },
-      { name: "Spor", n: 2 },
-      { name: "Kitap", n: 1 },
-    );
-  }
+  const categoryChartData = Object.entries(categoryCounts)
+    .map(([name, n]) => ({ name, n }))
+    .sort((a, b) => b.n - a.n);
 
-  // Aylık Kayıt ve İlan Trendi
-  const monthlyTrendData = [
-    { period: "Haziran", kayit: 1, ilan: 2 },
-    { period: "Temmuz", kayit: 1, ilan: 3 },
-    { period: "Ağustos", kayit: 2, ilan: 4 },
-    { period: "Eylül (Bu Ay)", kayit: users.length, ilan: listings.length },
-  ];
+  // Son 6 ayın gerçek kayıt ve ilan sayıları (kayıt/oluşturma tarihine göre)
+  const monthlyTrendData = (() => {
+    const now = new Date();
+    const months = Array.from({ length: 6 }, (_, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
+      return { key: `${d.getFullYear()}-${d.getMonth()}`, d };
+    });
+    const keyOf = (iso?: string) => {
+      if (!iso) return null;
+      const d = new Date(iso);
+      return Number.isNaN(d.getTime()) ? null : `${d.getFullYear()}-${d.getMonth()}`;
+    };
+    const userCounts = new Map<string, number>();
+    for (const u of users) {
+      const k = keyOf(u.createdAt);
+      if (k) userCounts.set(k, (userCounts.get(k) || 0) + 1);
+    }
+    const listingCounts = new Map<string, number>();
+    for (const l of listings) {
+      const k = keyOf(l.createdAt);
+      if (k) listingCounts.set(k, (listingCounts.get(k) || 0) + 1);
+    }
+    return months.map(({ key, d }, i) => ({
+      period: d.toLocaleDateString("tr-TR", { month: "long" }) + (i === months.length - 1 ? " (bu ay)" : ""),
+      kayit: userCounts.get(key) || 0,
+      ilan: listingCounts.get(key) || 0,
+    }));
+  })();
+
+  const liveListings = listings.filter((l) => l.status === "approved" || l.status === "yayinda").length;
+  const visibleListings = listings.filter((l) => l.status !== "deleted").length;
 
   return (
     <AdminShell compact kicker="Platform Performansı" title="Analitik ve İstatistikler">
@@ -3995,12 +4015,14 @@ export function AnalyticsPage() {
             <p className="text-xs text-muted mt-1">Kayıtlı mobil hesap</p>
           </Panel>
           <Panel title="Toplam İlan">
-            <p className="text-4xl font-extrabold tabular-nums text-forest mt-1">{listings.length}</p>
-            <p className="text-xs text-muted mt-1">{listings.filter((l) => l.status === "approved" || l.status === "yayinda").length} aktif yayında</p>
+            <p className="text-4xl font-extrabold tabular-nums text-forest mt-1">{visibleListings}</p>
+            <p className="text-xs text-muted mt-1">{liveListings} yayında</p>
           </Panel>
           <Panel title="Takas Teklifleri">
             <p className="text-4xl font-extrabold tabular-nums text-forest mt-1">{swapStats.totalOffers}</p>
-            <p className="text-xs text-muted mt-1">{swapStats.acceptedOffers} tamamlanan takas</p>
+            <p className="text-xs text-muted mt-1">
+              {swapStats.completedOffers} tamamlanan · {swapStats.acceptedOffers} devam eden takas
+            </p>
           </Panel>
           <Panel title="Bildirim & Şikayet">
             <p className="text-4xl font-extrabold tabular-nums text-forest mt-1">{reports.length}</p>
@@ -4012,8 +4034,8 @@ export function AnalyticsPage() {
         <div className="grid gap-5 lg:grid-cols-12">
           {/* Aylık / Haftalık Kayıt & İlan Trendi */}
           <Panel
-            title="Aylık Büyüme Trendi (Üye Kaydı & İlan Yayını)"
-            subtitle="Mobil uygulamanın dönemsel büyüme grafiği"
+            title="Aylık Büyüme (Son 6 Ay)"
+            subtitle="Her ay kaydolan yeni üye ve eklenen ilan sayısı"
             className="lg:col-span-8"
           >
             <div className="h-[280px]">
@@ -4034,7 +4056,7 @@ export function AnalyticsPage() {
                   <YAxis tick={{ fill: "var(--color-muted)", fontSize: 12 }} axisLine={false} tickLine={false} />
                   <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid var(--color-line)", fontSize: 12 }} />
                   <Area type="monotone" dataKey="kayit" name="Yeni Üye Kaydı" stroke="#0F5132" fill="url(#userGrad)" strokeWidth={2.5} />
-                  <Area type="monotone" dataKey="ilan" name="Yayınlanan İlan" stroke="#D97706" fill="url(#listingGrad)" strokeWidth={2.5} />
+                  <Area type="monotone" dataKey="ilan" name="Eklenen İlan" stroke="#D97706" fill="url(#listingGrad)" strokeWidth={2.5} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -4043,7 +4065,7 @@ export function AnalyticsPage() {
                 <span className="size-2.5 rounded-full bg-forest" /> Yeni Üye Kaydı
               </span>
               <span className="flex items-center gap-1.5 text-amber-600">
-                <span className="size-2.5 rounded-full bg-amber-500" /> Yayınlanan İlan
+                <span className="size-2.5 rounded-full bg-amber-500" /> Eklenen İlan
               </span>
             </div>
           </Panel>
@@ -4054,6 +4076,9 @@ export function AnalyticsPage() {
             subtitle="Eklenen ilanların kategorilere göre oranı"
             className="lg:col-span-4"
           >
+            {categoryChartData.length === 0 ? (
+              <p className="flex h-[280px] items-center justify-center text-sm text-muted">Henüz ilan yok.</p>
+            ) : (
             <div className="h-[280px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={categoryChartData} margin={{ top: 12, right: 8, left: -20, bottom: 0 }}>
@@ -4065,6 +4090,7 @@ export function AnalyticsPage() {
                 </BarChart>
               </ResponsiveContainer>
             </div>
+            )}
           </Panel>
         </div>
       </div>

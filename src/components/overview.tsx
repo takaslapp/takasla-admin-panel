@@ -189,7 +189,7 @@ export function OverviewPage() {
                 <span className="text-xs text-muted">Tamamlanan Takas</span>
                 <ArrowUpRight className="size-3.5 text-emerald-600 opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
-              <p className="mt-1 text-lg font-semibold tabular-nums text-emerald-600">{swapStats.acceptedOffers}</p>
+              <p className="mt-1 text-lg font-semibold tabular-nums text-emerald-600">{swapStats.completedOffers}</p>
             </Link>
 
             <Link

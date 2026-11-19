@@ -38,6 +38,8 @@ export type Listing = {
   description: string;
   status: ListingStatus;
   created: string;
+  /** ISO tarih (analitik için) */
+  createdAt?: string;
   adminNote?: string;
   images: string[];
   rejectReason?: string;

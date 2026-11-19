@@ -18,6 +18,27 @@ export interface SwapOfferStats {
   pendingOffers: number;
   acceptedOffers: number;
   rejectedOffers: number;
+  /** İki tarafın da onayıyla biten takaslar */
+  completedOffers: number;
+}
+
+/**
+ * Supabase tek sorguda en fazla 1000 satır döndürür. Bu yardımcı tüm satırları sayfa sayfa toplar;
+ * böylece ilan / teklif / kullanıcı sayısı 1000'i geçince panelde kayıtlar sessizce kaybolmaz.
+ */
+const PAGE_SIZE = 1000;
+async function fetchAllRows<T>(
+  page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+): Promise<T[]> {
+  const all: T[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await page(from, from + PAGE_SIZE - 1);
+    if (error) throw new Error(error.message);
+    const rows = data ?? [];
+    all.push(...rows);
+    if (rows.length < PAGE_SIZE) break;
+  }
+  return all;
 }
 
 interface AdminStore {
@@ -83,6 +104,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
     pendingOffers: 0,
     acceptedOffers: 0,
     rejectedOffers: 0,
+    completedOffers: 0,
   },
   completedSwapPairs: [],
   isLoading: false,
@@ -91,18 +113,18 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
     set({ isLoading: true });
     try {
       // 1. Supabase Profiles, Listings (ile listing_images), Swap Offers
-      const [profilesRes, listingsRes, offersRes] = await Promise.all([
-        supabase.rpc("admin_get_profiles"),
-        supabase
-          .from("listings")
-          .select("*, listing_images(image_url, display_order)")
-          .order("created_at", { ascending: false }),
-        supabase.from("swap_offers").select("*"),
+      const [rawProfiles, rawListings, rawOffers] = await Promise.all([
+        fetchAllRows<any>((from, to) => supabase.rpc("admin_get_profiles").range(from, to)),
+        fetchAllRows<any>((from, to) =>
+          supabase
+            .from("listings")
+            .select("*, listing_images(image_url, display_order)")
+            .order("created_at", { ascending: false })
+            .order("id")
+            .range(from, to),
+        ),
+        fetchAllRows<any>((from, to) => supabase.from("swap_offers").select("*").order("id").range(from, to)),
       ]);
-
-      const rawProfiles = (profilesRes.data as any[]) || [];
-      const rawListings = (listingsRes.data || []) as any[];
-      const rawOffers = offersRes.data || [];
       const offerMap = new Map<string, any>();
       for (const off of rawOffers) {
         offerMap.set(off.id, off);
@@ -215,6 +237,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
             description: l.description || "Açıklama girilmedi.",
             status,
             created: createdFormatted,
+            createdAt: l.created_at || dt.toISOString(),
             adminNote: l.admin_note || undefined,
             images: imagesList,
           };
@@ -227,6 +250,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
         pendingOffers: rawOffers.filter((o) => o.status === "pending").length,
         acceptedOffers: rawOffers.filter((o) => o.status === "accepted").length,
         rejectedOffers: rawOffers.filter((o) => o.status === "rejected").length,
+        completedOffers: rawOffers.filter((o) => o.status === "completed").length,
       };
 
       // Şikayetler ve Öneriler tablosunu çek (Supabase public.reports)
