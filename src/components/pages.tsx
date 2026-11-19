@@ -54,6 +54,8 @@ import {
 import type { CompletedSwapPair, Listing, ListingStatus, Report, ReportStatus, SuggestionStatus, User } from "@/lib/data";
 import { useAdminStore } from "@/lib/store";
 import { AdminShell, Panel, StatusChip } from "./admin-shell";
+import { UserSuspensionSection } from "./user-suspension";
+import { activeSuspensionMap, fetchSuspensions, type Suspension } from "@/lib/suspensions";
 import { Button } from "./ui/button";
 
 function Toolbar({
@@ -113,7 +115,7 @@ export function UsersPage() {
   const isLoading = useAdminStore((s) => s.isLoading);
 
   const [q, setQ] = useState("");
-  const [activeFilter, setActiveFilter] = useState<"all" | "with_listings" | "no_listings" | "admin">("all");
+  const [activeFilter, setActiveFilter] = useState<"all" | "with_listings" | "no_listings" | "admin" | "suspended">("all");
   const [sortBy, setSortBy] = useState<"newest" | "listings" | "name">("newest");
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -121,6 +123,14 @@ export function UsersPage() {
   useEffect(() => {
     fetchDashboardData();
   }, [fetchDashboardData]);
+
+  // Askı kayıtları (aktif + geçmiş)
+  const [suspensions, setSuspensions] = useState<Suspension[]>([]);
+  const reloadSuspensions = () => {
+    fetchSuspensions().then(setSuspensions);
+  };
+  useEffect(reloadSuspensions, []);
+  const suspendedMap = useMemo(() => activeSuspensionMap(suspensions), [suspensions]);
 
   // Metrikler
   const totalUsers = users.length;
@@ -139,6 +149,8 @@ export function UsersPage() {
       result = result.filter((u) => (u.listingsCount || 0) === 0);
     } else if (activeFilter === "admin") {
       result = result.filter((u) => u.role === "Yönetici");
+    } else if (activeFilter === "suspended") {
+      result = result.filter((u) => suspendedMap.has(u.id));
     }
 
     if (q.trim()) {
@@ -171,7 +183,7 @@ export function UsersPage() {
       }
       return 0;
     });
-  }, [users, q, activeFilter, sortBy]);
+  }, [users, suspendedMap, q, activeFilter, sortBy]);
 
   const handleCopyId = (e: React.MouseEvent, id: string, name: string) => {
     e.stopPropagation();
@@ -362,6 +374,19 @@ export function UsersPage() {
               >
                 🛡️ Yöneticiler ({adminUsers.length})
               </button>
+              {suspendedMap.size > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setActiveFilter("suspended")}
+                  className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                    activeFilter === "suspended"
+                      ? "bg-rose-600 text-white"
+                      : "bg-rose-50 text-rose-700 hover:bg-rose-100"
+                  }`}
+                >
+                  Askıdakiler ({suspendedMap.size})
+                </button>
+              )}
 
               {(q || activeFilter !== "all") && (
                 <button
@@ -407,6 +432,7 @@ export function UsersPage() {
                       <div className="min-w-0">
                         <div className="flex items-center gap-1.5">
                           <p className="font-bold text-ink text-sm truncate">{u.name}</p>
+                          {suspendedMap.has(u.id) && (<span className="shrink-0 rounded-full bg-rose-600 px-1.5 py-0.5 text-[9px] font-bold text-white">ASKIDA</span>)}
                         </div>
                         <p className="text-xs text-muted font-mono truncate">
                           {u.username?.startsWith("@") ? u.username : `@${u.username}`}
@@ -549,9 +575,12 @@ export function UsersPage() {
                             }}
                           />
                           <div className="min-w-0">
-                            <p className="font-bold text-ink group-hover:text-forest transition-colors truncate">
-                              {u.name}
-                            </p>
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <p className="font-bold text-ink group-hover:text-forest transition-colors truncate">
+                                {u.name}
+                              </p>
+                              {suspendedMap.has(u.id) && (<span className="shrink-0 rounded-full bg-rose-600 px-1.5 py-0.5 text-[9px] font-bold text-white">ASKIDA</span>)}
+                            </div>
                             <p className="text-xs text-muted font-mono truncate">
                               {u.username?.startsWith("@") ? u.username : `@${u.username}`}
                             </p>
@@ -819,6 +848,18 @@ export function UsersPage() {
                 </div>
               )}
             </div>
+
+            {/* Askıya alma */}
+            <UserSuspensionSection
+              userId={selectedUser.id}
+              userName={selectedUser.name}
+              isAdminUser={selectedUser.role === "Yönetici"}
+              history={suspensions.filter((x) => x.user_id === selectedUser.id)}
+              onChanged={() => {
+                reloadSuspensions();
+                fetchDashboardData();
+              }}
+            />
 
             {/* Modal Aksiyon Butonları */}
             <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 border-t border-line/60">
