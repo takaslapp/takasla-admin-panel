@@ -99,20 +99,29 @@ export async function sendBroadcastAnnouncement({
     // In-App Bildirimler tablosuna ekle
     if (inAppNotification) {
       try {
-        const { data: profileRows } = await supabase
-          .from("profiles")
-          .select("id")
-          .limit(500);
+        // Tüm kullanıcılar sayfa sayfa okunur ve 500'lük gruplar halinde eklenir (eski 500 kişi sınırı yok)
+        const PAGE = 1000;
+        for (let from = 0; ; from += PAGE) {
+          const { data: profileRows, error: pageErr } = await supabase
+            .from("profiles")
+            .select("id")
+            .order("id")
+            .range(from, from + PAGE - 1);
+          if (pageErr) throw pageErr;
+          if (!profileRows || profileRows.length === 0) break;
 
-        if (profileRows && profileRows.length > 0) {
-          const notifInserts = profileRows.map((p) => ({
-            user_id: p.id,
-            title: cleanTitle,
-            message: cleanBody,
-            type: "system",
-            is_read: false,
-          }));
-          await supabase.from("notifications").insert(notifInserts);
+          for (let i = 0; i < profileRows.length; i += 500) {
+            const notifInserts = profileRows.slice(i, i + 500).map((p) => ({
+              user_id: p.id,
+              title: cleanTitle,
+              message: cleanBody,
+              type: "system",
+              is_read: false,
+            }));
+            const { error: insErr } = await supabase.from("notifications").insert(notifInserts);
+            if (insErr) throw insErr;
+          }
+          if (profileRows.length < PAGE) break;
         }
       } catch (err) {
         console.warn("In-app notifications insert uyarısı:", err);

@@ -3,3 +3,8 @@ node_modules
 .vercel
 .git
 .DS_Store
+.env
+.env.*
+.grok
+.tanstack
+*.sql
