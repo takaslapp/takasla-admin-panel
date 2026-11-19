@@ -14,6 +14,7 @@ import { Route as AnalitikRouteImport } from './routes/analitik'
 import { Route as BannerlarRouteImport } from './routes/bannerlar'
 import { Route as BildirimlerRouteImport } from './routes/bildirimler'
 import { Route as IlanlarRouteImport } from './routes/ilanlar'
+import { Route as IslemKaydiRouteImport } from './routes/islem-kaydi'
 import { Route as KullanicilarRouteImport } from './routes/kullanicilar'
 import { Route as OnerilerRouteImport } from './routes/oneriler'
 import { Route as SikayetlerRouteImport } from './routes/sikayetler'
@@ -43,6 +44,11 @@ const IlanlarRoute = IlanlarRouteImport.update({
   path: '/ilanlar',
   getParentRoute: () => rootRouteImport,
 } as any)
+const IslemKaydiRoute = IslemKaydiRouteImport.update({
+  id: '/islem-kaydi',
+  path: '/islem-kaydi',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const KullanicilarRoute = KullanicilarRouteImport.update({
   id: '/kullanicilar',
   path: '/kullanicilar',
@@ -65,6 +71,7 @@ export interface FileRoutesByFullPath {
   '/bannerlar': typeof BannerlarRoute
   '/bildirimler': typeof BildirimlerRoute
   '/ilanlar': typeof IlanlarRoute
+  '/islem-kaydi': typeof IslemKaydiRoute
   '/kullanicilar': typeof KullanicilarRoute
   '/oneriler': typeof OnerilerRoute
   '/sikayetler': typeof SikayetlerRoute
@@ -75,6 +82,7 @@ export interface FileRoutesByTo {
   '/bannerlar': typeof BannerlarRoute
   '/bildirimler': typeof BildirimlerRoute
   '/ilanlar': typeof IlanlarRoute
+  '/islem-kaydi': typeof IslemKaydiRoute
   '/kullanicilar': typeof KullanicilarRoute
   '/oneriler': typeof OnerilerRoute
   '/sikayetler': typeof SikayetlerRoute
@@ -86,6 +94,7 @@ export interface FileRoutesById {
   '/bannerlar': typeof BannerlarRoute
   '/bildirimler': typeof BildirimlerRoute
   '/ilanlar': typeof IlanlarRoute
+  '/islem-kaydi': typeof IslemKaydiRoute
   '/kullanicilar': typeof KullanicilarRoute
   '/oneriler': typeof OnerilerRoute
   '/sikayetler': typeof SikayetlerRoute
@@ -98,6 +107,7 @@ export interface FileRouteTypes {
     | '/bannerlar'
     | '/bildirimler'
     | '/ilanlar'
+    | '/islem-kaydi'
     | '/kullanicilar'
     | '/oneriler'
     | '/sikayetler'
@@ -108,6 +118,7 @@ export interface FileRouteTypes {
     | '/bannerlar'
     | '/bildirimler'
     | '/ilanlar'
+    | '/islem-kaydi'
     | '/kullanicilar'
     | '/oneriler'
     | '/sikayetler'
@@ -118,6 +129,7 @@ export interface FileRouteTypes {
     | '/bannerlar'
     | '/bildirimler'
     | '/ilanlar'
+    | '/islem-kaydi'
     | '/kullanicilar'
     | '/oneriler'
     | '/sikayetler'
@@ -129,6 +141,7 @@ export interface RootRouteChildren {
   BannerlarRoute: typeof BannerlarRoute
   BildirimlerRoute: typeof BildirimlerRoute
   IlanlarRoute: typeof IlanlarRoute
+  IslemKaydiRoute: typeof IslemKaydiRoute
   KullanicilarRoute: typeof KullanicilarRoute
   OnerilerRoute: typeof OnerilerRoute
   SikayetlerRoute: typeof SikayetlerRoute
@@ -171,6 +184,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IlanlarRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/islem-kaydi': {
+      id: '/islem-kaydi'
+      path: '/islem-kaydi'
+      fullPath: '/islem-kaydi'
+      preLoaderRoute: typeof IslemKaydiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/kullanicilar': {
       id: '/kullanicilar'
       path: '/kullanicilar'
@@ -201,6 +221,7 @@ const rootRouteChildren: RootRouteChildren = {
   BannerlarRoute: BannerlarRoute,
   BildirimlerRoute: BildirimlerRoute,
   IlanlarRoute: IlanlarRoute,
+  IslemKaydiRoute: IslemKaydiRoute,
   KullanicilarRoute: KullanicilarRoute,
   OnerilerRoute: OnerilerRoute,
   SikayetlerRoute: SikayetlerRoute,

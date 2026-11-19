@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { logAdminAction } from "./audit";
 import type {
   CompletedSwapPair,
   Listing,
@@ -54,8 +55,8 @@ interface AdminStore {
   approveListing: (id: string) => Promise<void>;
   requestRevision: (id: string, note: string) => Promise<void>;
   rejectListing: (id: string, reason: string) => Promise<void>;
-  deleteListing: (id: string) => Promise<void>;
-  deleteMultipleListings: (ids: string[]) => Promise<void>;
+  deleteListing: (id: string, reason?: string) => Promise<void>;
+  deleteMultipleListings: (ids: string[], reason?: string) => Promise<void>;
   setReportStatus: (id: string, status: ReportStatus) => Promise<void>;
   resolveReport: (options: {
     reportId: string;
@@ -82,8 +83,11 @@ const REMOVE_LISTING_ERRORS: Record<string, string> = {
  * İlanı uygulamanın kendi silme kurallarıyla kaldırır (admin_remove_listing RPC):
  * bekleyen teklifler iptal edilir ve 10 TP iade edilir; teklif geçmişi olan ilan gizlenir, olmayan silinir.
  */
-async function removeListingViaRpc(id: string): Promise<void> {
-  const { data, error } = await supabase.rpc("admin_remove_listing", { p_listing_id: id });
+async function removeListingViaRpc(id: string, reason?: string): Promise<void> {
+  const { data, error } = await supabase.rpc("admin_remove_listing", {
+    p_listing_id: id,
+    p_reason: reason?.trim() || null,
+  });
   if (error) {
     console.error("admin_remove_listing hatası:", error);
     throw new Error(error.message || "İlan kaldırılamadı.");
@@ -460,6 +464,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
       if (!data || data.length === 0) {
         throw new Error("Veritabanı güncellenemedi (RLS politikasını kontrol edin)");
       }
+      void logAdminAction("listing_approved", "listing", id, { title: listing?.title ?? data[0]?.title });
 
       set((s) => ({
         listings: s.listings.map((l) => (l.id === id ? { ...l, status: "approved", adminNote: undefined } : l)),
@@ -491,6 +496,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
       }
     } catch (e) {
       console.error("approveListing hatası:", e);
+      throw e instanceof Error ? e : new Error("İşlem tamamlanamadı.");
     }
   },
 
@@ -516,6 +522,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
       if (!data || data.length === 0) {
         throw new Error("Veritabanı güncellenemedi (RLS politikasını kontrol edin)");
       }
+      void logAdminAction("listing_revision_requested", "listing", id, { title: listing?.title ?? data[0]?.title, note });
 
       set((s) => ({
         listings: s.listings.map((l) =>
@@ -543,6 +550,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
       }
     } catch (e) {
       console.error("requestRevision hatası:", e);
+      throw e instanceof Error ? e : new Error("İşlem tamamlanamadı.");
     }
   },
 
@@ -568,6 +576,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
       if (!data || data.length === 0) {
         throw new Error("Veritabanı güncellenemedi (RLS politikasını kontrol edin)");
       }
+      void logAdminAction("listing_rejected", "listing", id, { title: listing?.title ?? data[0]?.title, reason });
 
       set((s) => ({
         listings: s.listings.map((l) =>
@@ -595,24 +604,25 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
       }
     } catch (e) {
       console.error("rejectListing hatası:", e);
+      throw e instanceof Error ? e : new Error("İşlem tamamlanamadı.");
     }
   },
 
-  deleteListing: async (id: string) => {
-    await removeListingViaRpc(id);
+  deleteListing: async (id: string, reason?: string) => {
+    await removeListingViaRpc(id, reason);
     // Yalnızca başarılı kaldırma işleminden sonra listeden çıkar
     set((s) => ({
       listings: s.listings.filter((l) => l.id !== id),
     }));
   },
 
-  deleteMultipleListings: async (ids: string[]) => {
+  deleteMultipleListings: async (ids: string[], reason?: string) => {
     const removed: string[] = [];
     const failures: string[] = [];
     // Sırayla: her ilan kendi kilidi ve kurallarıyla (uygulamadaki silme ile aynı) işlenir
     for (const id of ids) {
       try {
-        await removeListingViaRpc(id);
+        await removeListingViaRpc(id, reason);
         removed.push(id);
       } catch (e) {
         const title = get().listings.find((l) => l.id === id)?.title ?? id;
@@ -635,9 +645,13 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
       reports: s.reports.map((r) => (r.id === id ? { ...r, status } : r)),
     }));
     try {
-      await supabase.from("reports").update({ status }).eq("id", id);
+      const { error } = await supabase.from("reports").update({ status }).eq("id", id);
+      if (error) throw error;
+      void logAdminAction("report_status_changed", "report", id, { status });
     } catch (e) {
       console.error("setReportStatus hatası:", e);
+      // Ekran veritabanıyla tutarlı kalsın
+      void get().fetchDashboardData();
     }
   },
 
@@ -650,10 +664,17 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
     }));
 
     try {
-      await supabase.from("reports").update({ status: newStatus }).eq("id", reportId);
+      const { error: statusErr } = await supabase.from("reports").update({ status: newStatus }).eq("id", reportId);
+      if (statusErr) throw statusErr;
+      void logAdminAction("report_resolved", "report", reportId, {
+        action,
+        report_type: reportType,
+        target_title: targetTitle,
+        message: customMessage,
+      });
 
       if (action === "delete_listing" && targetListingId) {
-        await get().deleteListing(targetListingId);
+        await get().deleteListing(targetListingId, customMessage?.trim() || "Şikayet incelemesi sonucu kural ihlali tespit edildi.");
       }
 
       if (reporterId) {
@@ -745,9 +766,12 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
       else if (status === "uygulandi") dbStatus = "cozuldu";
       else if (status === "arsiv") dbStatus = "reddedildi";
 
-      await supabase.from("reports").update({ status: dbStatus }).eq("id", id);
+      const { error } = await supabase.from("reports").update({ status: dbStatus }).eq("id", id);
+      if (error) throw error;
+      void logAdminAction("suggestion_status_changed", "report", id, { status });
     } catch (e) {
       console.error("setSuggestionStatus hatası:", e);
+      void get().fetchDashboardData();
     }
   },
 }));

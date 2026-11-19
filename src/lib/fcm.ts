@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { logAdminAction } from "./audit";
 
 export interface AnnouncementRecord {
   id: string;
@@ -128,6 +129,12 @@ export async function sendBroadcastAnnouncement({
       }
     }
 
+    void logAdminAction("announcement_broadcast", "system", null, {
+      title: cleanTitle,
+      body: cleanBody.slice(0, 300),
+      devices: devicesReached,
+    });
+
     // Gönderim geçmişine kaydet
     saveAnnouncementToHistory({
       id: crypto.randomUUID(),
@@ -251,6 +258,12 @@ export async function sendTargetedAnnouncement({
     // In-app bildirimi send-push Edge Function tarafından merkezi ve idempotent olarak notifications tablosuna eklenir
 
     const devicesReached = data.sent_count ?? data.total_tokens ?? 1;
+
+    void logAdminAction("announcement_targeted", "user", userRow.id, {
+      title: cleanTitle,
+      body: cleanBody.slice(0, 300),
+      devices: devicesReached,
+    });
 
     saveAnnouncementToHistory({
       id: crypto.randomUUID(),

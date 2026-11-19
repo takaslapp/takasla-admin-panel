@@ -8,6 +8,26 @@ interface AdminLoginProps {
   onSuccess: (user: User, role: string) => void;
 }
 
+/** Supabase giriş hatalarını Türkçeye çevirir; bilinmeyen İngilizce mesajlar kullanıcıya gösterilmez. */
+function loginErrorMessage(raw?: string): string {
+  const m = (raw || "").toLowerCase();
+  if (m.includes("invalid login credentials") || m.includes("invalid_credentials")) {
+    return "E-posta veya şifre hatalı.";
+  }
+  if (m.includes("email not confirmed")) return "Bu e-posta adresi henüz doğrulanmamış.";
+  if (m.includes("banned") || m.includes("user_banned")) return "Bu hesap askıya alınmış.";
+  if (m.includes("rate limit") || m.includes("too many") || m.includes("over_request_rate_limit")) {
+    return "Çok fazla deneme yapıldı. Lütfen birkaç dakika sonra tekrar dene.";
+  }
+  if (m.includes("failed to fetch") || m.includes("network") || m.includes("load failed")) {
+    return "Sunucuya ulaşılamadı. İnternet bağlantını kontrol edip tekrar dene.";
+  }
+  if (m.includes("email") && (m.includes("invalid") || m.includes("format"))) {
+    return "Lütfen geçerli bir e-posta adresi gir.";
+  }
+  return "Giriş yapılamadı. Lütfen bilgilerini kontrol edip tekrar dene.";
+}
+
 export function AdminLogin({ initialError, onSuccess }: AdminLoginProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -38,19 +58,7 @@ export function AdminLogin({ initialError, onSuccess }: AdminLoginProps) {
         });
 
       if (authError || !authData.user) {
-        let msg = "Giriş başarısız: E-posta veya şifre hatalı.";
-        const rawMsg = authError?.message?.toLowerCase() || "";
-        if (
-          rawMsg.includes("invalid login credentials") ||
-          rawMsg.includes("invalid_credentials")
-        ) {
-          msg = "E-posta veya şifre hatalı.";
-        } else if (rawMsg.includes("email not confirmed")) {
-          msg = "E-posta adresi doğrulanmamış.";
-        } else if (authError?.message) {
-          msg = authError.message;
-        }
-        setError(msg);
+        setError(loginErrorMessage(authError?.message));
         setIsSubmitting(false);
         return;
       }
@@ -78,7 +86,7 @@ export function AdminLogin({ initialError, onSuccess }: AdminLoginProps) {
       onSuccess(authData.user, profile.role);
     } catch (err: any) {
       console.error("Giriş hatası:", err);
-      setError(err?.message || "Giriş yapılırken bir sorun oluştu.");
+      setError(loginErrorMessage(err?.message));
       setIsSubmitting(false);
     }
   };

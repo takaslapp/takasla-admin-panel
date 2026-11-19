@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { logAdminAction } from "./audit";
 
 export type BannerTargetType =
   | "explore"
@@ -95,6 +96,7 @@ export async function createBanner(
     throw error;
   }
 
+  void logAdminAction("banner_created", "banner", (data as Banner).id, { title: (data as Banner).title });
   return data as Banner;
 }
 
@@ -114,6 +116,7 @@ export async function updateBanner(
     throw error;
   }
 
+  void logAdminAction("banner_updated", "banner", id, { title: (data as Banner).title });
   return data as Banner;
 }
 
@@ -178,6 +181,8 @@ export async function deleteBanner(id: string, imageUrl?: string): Promise<void>
     throw error;
   }
 
+  void logAdminAction("banner_deleted", "banner", id, {});
+
   // 2. DB silme başarılı olduktan sonra görseli temizle
   if (imageUrl) {
     await deleteBannerImageByUrl(imageUrl);
@@ -194,6 +199,7 @@ export async function toggleBannerActive(id: string, isActive: boolean): Promise
     console.error("toggleBannerActive error:", error);
     throw error;
   }
+  void logAdminAction("banner_toggled", "banner", id, { is_active: isActive });
 }
 
 /**

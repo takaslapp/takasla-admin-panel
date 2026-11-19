@@ -25,6 +25,7 @@ const NAV = [
   { to: "/bildirimler", label: "Duyuru & Bildirim" },
   { to: "/bannerlar", label: "Bannerlar" },
   { to: "/analitik", label: "Analitik" },
+  { to: "/islem-kaydi", label: "İşlem Kaydı" },
 ];
 
 function Logo() {

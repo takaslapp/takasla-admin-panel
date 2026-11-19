@@ -920,6 +920,8 @@ export function ListingsPage() {
 
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  // İlan sahibine bildirimde gösterilen kaldırma nedeni (tekil ve toplu kaldırmada ortak)
+  const [removeReason, setRemoveReason] = useState("");
 
   useEffect(() => {
     fetchDashboardData();
@@ -1097,7 +1099,7 @@ export function ListingsPage() {
     }
     try {
       await rejectListing(rejectListingItem.id, rejectReason.trim());
-      toast.error(`"${rejectListingItem.title}" başlıklı ilan reddedildi ve kullanıcıya bildirildi.`);
+      toast.success(`"${rejectListingItem.title}" başlıklı ilan reddedildi ve kullanıcıya bildirildi.`);
       setRejectListingItem(null);
       setRejectReason("");
       if (previewListing?.id === rejectListingItem.id) {
@@ -1118,13 +1120,14 @@ export function ListingsPage() {
     if (!deleteTarget) return;
     setIsDeleting(true);
     try {
-      await deleteListing(deleteTarget.id);
+      await deleteListing(deleteTarget.id, removeReason);
       toast.success(`"${deleteTarget.title}" başlıklı ilan yayından kaldırıldı.`);
       setSelectedIds((prev) => prev.filter((id) => id !== deleteTarget.id));
       if (previewListing?.id === deleteTarget.id) {
         setPreviewListing(null);
       }
       setDeleteTarget(null);
+      setRemoveReason("");
     } catch (err: any) {
       toast.error(`Silme işlemi başarısız: ${err?.message || "İşlem tamamlanamadı"}`);
     } finally {
@@ -1138,13 +1141,14 @@ export function ListingsPage() {
     setIsBulkDeleting(true);
     const count = selectedIds.length;
     try {
-      await deleteMultipleListings(selectedIds);
+      await deleteMultipleListings(selectedIds, removeReason);
       toast.success(`Seçilen ${count} ilan yayından kaldırıldı.`);
       if (previewListing && selectedIds.includes(previewListing.id)) {
         setPreviewListing(null);
       }
       setSelectedIds([]);
       setBulkDeleteModalOpen(false);
+      setRemoveReason("");
     } catch (err: any) {
       toast.error(err?.message || "Toplu kaldırma tamamlanamadı.");
     } finally {
@@ -2581,13 +2585,28 @@ export function ListingsPage() {
                 <Trash2 className="size-5" />
               </div>
               <div className="min-w-0 flex-1">
-                <h3 className="text-base font-bold text-ink">İlanı Kalıcı Olarak Sil</h3>
+                <h3 className="text-base font-bold text-ink">İlanı Yayından Kaldır</h3>
                 <p className="mt-1 text-xs text-muted leading-relaxed">
-                  <span className="font-semibold text-ink">&ldquo;{deleteTarget.title}&rdquo;</span> başlıklı ilanı sistemden kalıcı olarak kaldırmak istediğinize emin misiniz?
+                  <span className="font-semibold text-ink">&ldquo;{deleteTarget.title}&rdquo;</span> başlıklı ilanı yayından kaldırmak istediğinize emin misiniz?
                 </p>
               </div>
             </div>
 
+
+            <div className="mt-4 space-y-1.5">
+              <label htmlFor="remove-reason-single" className="text-xs font-semibold text-ink">
+                Kaldırma nedeni <span className="font-normal text-muted">(ilan sahibine bildirimle iletilir)</span>
+              </label>
+              <textarea
+                id="remove-reason-single"
+                value={removeReason}
+                onChange={(e) => setRemoveReason(e.target.value)}
+                rows={2}
+                maxLength={500}
+                placeholder="Örn: Yasaklı ürün, yanıltıcı fotoğraf, kopya ilan"
+                className="w-full rounded-lg border border-line bg-card p-2.5 text-sm text-ink outline-none focus:border-rose-400"
+              />
+            </div>
             <div className="mt-4 rounded-xl border border-rose-200/80 bg-rose-50/60 p-3 text-xs text-rose-900 flex items-start gap-2.5">
               <AlertTriangle className="size-4 shrink-0 text-rose-600 mt-0.5" />
               <p className="leading-relaxed">
@@ -2600,7 +2619,10 @@ export function ListingsPage() {
                 variant="outline"
                 size="sm"
                 disabled={isDeleting}
-                onClick={() => setDeleteTarget(null)}
+                onClick={() => {
+                  setDeleteTarget(null);
+                  setRemoveReason("");
+                }}
               >
                 Vazgeç
               </Button>
@@ -2612,10 +2634,10 @@ export function ListingsPage() {
                 onClick={handleConfirmDelete}
               >
                 {isDeleting ? (
-                  "Siliniyor..."
+                  "Kaldırılıyor..."
                 ) : (
                   <>
-                    <Trash2 className="size-3.5 mr-1.5" /> Evet, Kalıcı Olarak Sil
+                    <Trash2 className="size-3.5 mr-1.5" /> Evet, Kaldır
                   </>
                 )}
               </Button>
@@ -2659,6 +2681,21 @@ export function ListingsPage() {
               ))}
             </div>
 
+
+            <div className="mt-4 space-y-1.5">
+              <label htmlFor="remove-reason-bulk" className="text-xs font-semibold text-ink">
+                Kaldırma nedeni <span className="font-normal text-muted">(ilan sahibine bildirimle iletilir)</span>
+              </label>
+              <textarea
+                id="remove-reason-bulk"
+                value={removeReason}
+                onChange={(e) => setRemoveReason(e.target.value)}
+                rows={2}
+                maxLength={500}
+                placeholder="Örn: Yasaklı ürün, yanıltıcı fotoğraf, kopya ilan"
+                className="w-full rounded-lg border border-line bg-card p-2.5 text-sm text-ink outline-none focus:border-rose-400"
+              />
+            </div>
             <div className="mt-4 rounded-xl border border-rose-300 bg-rose-50/80 p-3 text-xs text-rose-950 flex items-start gap-2.5">
               <AlertTriangle className="size-4 shrink-0 text-rose-600 mt-0.5" />
               <p className="leading-relaxed">
@@ -2671,7 +2708,7 @@ export function ListingsPage() {
                 variant="outline"
                 size="sm"
                 disabled={isBulkDeleting}
-                onClick={() => setBulkDeleteModalOpen(false)}
+                onClick={() => { setBulkDeleteModalOpen(false); setRemoveReason(""); }}
               >
                 Vazgeç
               </Button>
