@@ -1078,7 +1078,7 @@ export function ListingsPage() {
     setIsDeleting(true);
     try {
       await deleteListing(deleteTarget.id);
-      toast.success(`"${deleteTarget.title}" başlıklı ilan sistemden kalıcı olarak silindi.`);
+      toast.success(`"${deleteTarget.title}" başlıklı ilan yayından kaldırıldı.`);
       setSelectedIds((prev) => prev.filter((id) => id !== deleteTarget.id));
       if (previewListing?.id === deleteTarget.id) {
         setPreviewListing(null);
@@ -1098,14 +1098,14 @@ export function ListingsPage() {
     const count = selectedIds.length;
     try {
       await deleteMultipleListings(selectedIds);
-      toast.success(`Seçilen ${count} adet ilan sistemden başarıyla silindi.`);
+      toast.success(`Seçilen ${count} ilan yayından kaldırıldı.`);
       if (previewListing && selectedIds.includes(previewListing.id)) {
         setPreviewListing(null);
       }
       setSelectedIds([]);
       setBulkDeleteModalOpen(false);
     } catch (err: any) {
-      toast.error(`Toplu silme sırasında hata oluştu: ${err?.message || "İşlem tamamlanamadı"}`);
+      toast.error(err?.message || "Toplu kaldırma tamamlanamadı.");
     } finally {
       setIsBulkDeleting(false);
     }
@@ -2550,7 +2550,7 @@ export function ListingsPage() {
             <div className="mt-4 rounded-xl border border-rose-200/80 bg-rose-50/60 p-3 text-xs text-rose-900 flex items-start gap-2.5">
               <AlertTriangle className="size-4 shrink-0 text-rose-600 mt-0.5" />
               <p className="leading-relaxed">
-                Bu işlem geri alınamaz. İlan veritabanından, favorilerden ve fotoğraflarından tamamen silinecektir.
+                Bu işlem geri alınamaz. Bekleyen teklifler iptal edilir ve teklif sahiplerine 10 TakasPara iade edilir. Teklif geçmişi olan ilan sohbet kayıtları bozulmasın diye gizlenir; hiç teklif almamış ilan tamamen silinir.
               </p>
             </div>
 
@@ -2621,7 +2621,7 @@ export function ListingsPage() {
             <div className="mt-4 rounded-xl border border-rose-300 bg-rose-50/80 p-3 text-xs text-rose-950 flex items-start gap-2.5">
               <AlertTriangle className="size-4 shrink-0 text-rose-600 mt-0.5" />
               <p className="leading-relaxed">
-                <strong>Dikkat:</strong> Bu işlem geri alınamaz. Seçilen tüm ilanlar, ilan fotoğrafları ve kullanıcı favorileri veritabanından tamamen silinecektir.
+                <strong>Dikkat:</strong> Bu işlem geri alınamaz. Bekleyen teklifler iptal edilir ve teklif sahiplerine 10 TakasPara iade edilir. Devam eden veya tamamlanmış takası olan ilanlar kaldırılmaz.
               </p>
             </div>
 

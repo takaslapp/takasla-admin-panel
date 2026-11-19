@@ -30,7 +30,6 @@ interface AdminStore {
   isLoading: boolean;
 
   fetchDashboardData: () => Promise<void>;
-  setUserStatus: (id: string, status: "aktif" | "yeni") => Promise<void>;
   approveListing: (id: string) => Promise<void>;
   requestRevision: (id: string, note: string) => Promise<void>;
   rejectListing: (id: string, reason: string) => Promise<void>;
@@ -47,6 +46,31 @@ interface AdminStore {
     reportType?: string;
   }) => Promise<void>;
   setSuggestionStatus: (id: string, status: SuggestionStatus) => Promise<void>;
+}
+
+/** admin_remove_listing hata kodlarının Türkçe karşılıkları */
+const REMOVE_LISTING_ERRORS: Record<string, string> = {
+  forbidden: "Bu işlem için yönetici yetkisi gerekiyor.",
+  invalid_parameters: "Geçersiz ilan kimliği.",
+  listing_not_found: "İlan bulunamadı.",
+  listing_completed: "Takaslanmış ilanlar geçmiş kaydı olarak korunur ve kaldırılamaz.",
+  active_trade_exists: "Bu ilana ait devam eden bir takas var. Önce takasın iptal edilmesi gerekir.",
+};
+
+/**
+ * İlanı uygulamanın kendi silme kurallarıyla kaldırır (admin_remove_listing RPC):
+ * bekleyen teklifler iptal edilir ve 10 TP iade edilir; teklif geçmişi olan ilan gizlenir, olmayan silinir.
+ */
+async function removeListingViaRpc(id: string): Promise<void> {
+  const { data, error } = await supabase.rpc("admin_remove_listing", { p_listing_id: id });
+  if (error) {
+    console.error("admin_remove_listing hatası:", error);
+    throw new Error(error.message || "İlan kaldırılamadı.");
+  }
+  const result = (data ?? {}) as { success?: boolean; error?: string };
+  if (!result.success) {
+    throw new Error(REMOVE_LISTING_ERRORS[result.error ?? ""] ?? "İlan kaldırılamadı.");
+  }
 }
 
 export const useAdminStore = create<AdminStore>((set, get) => ({
@@ -390,17 +414,6 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
     }
   },
 
-  setUserStatus: async (id, status) => {
-    set((s) => ({
-      users: s.users.map((u) => (u.id === id ? { ...u, role: status === "aktif" ? "Aktif" : "Yeni" } : u)),
-    }));
-    try {
-      await supabase.from("profiles").update({ is_verified: status === "aktif" }).eq("id", id);
-    } catch (e) {
-      console.error("setUserStatus hatası:", e);
-    }
-  },
-
   approveListing: async (id: string) => {
     const listing = get().listings.find((l) => l.id === id);
     if (listing?.status === "completed" || listing?.status === "takaslandi") {
@@ -562,53 +575,35 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
   },
 
   deleteListing: async (id: string) => {
-    const listing = get().listings.find((l) => l.id === id);
-    if (listing?.status === "completed" || listing?.status === "takaslandi") {
-      throw new Error("Tamamlanmış takas ilanları geçmiş kaydı olarak korunur ve silinemez.");
-    }
-
-    try {
-      await supabase.from("favorites").delete().eq("listing_id", id);
-      await supabase.from("listing_images").delete().eq("listing_id", id);
-    } catch (_) {}
-
-    const { error: delError } = await supabase.from("listings").delete().eq("id", id);
-    if (delError) {
-      console.error("deleteListing hatası:", delError);
-      throw new Error(delError.message || "İlan veritabanından silinemedi.");
-    }
-
-    // Yalnızca başarılı silme işlemi sonrasında store'dan kaldır
+    await removeListingViaRpc(id);
+    // Yalnızca başarılı kaldırma işleminden sonra listeden çıkar
     set((s) => ({
       listings: s.listings.filter((l) => l.id !== id),
     }));
   },
 
   deleteMultipleListings: async (ids: string[]) => {
-    const safeIds = ids.filter((id) => {
-      const l = get().listings.find((item) => item.id === id);
-      return l?.status !== "completed" && l?.status !== "takaslandi";
-    });
-    if (safeIds.length === 0) {
-      throw new Error("Seçilen ilanlar arasında silinebilir ilan bulunmuyor.");
+    const removed: string[] = [];
+    const failures: string[] = [];
+    // Sırayla: her ilan kendi kilidi ve kurallarıyla (uygulamadaki silme ile aynı) işlenir
+    for (const id of ids) {
+      try {
+        await removeListingViaRpc(id);
+        removed.push(id);
+      } catch (e) {
+        const title = get().listings.find((l) => l.id === id)?.title ?? id;
+        failures.push(`${title}: ${(e as Error).message}`);
+      }
     }
-
-    try {
-      await supabase.from("favorites").delete().in("listing_id", safeIds);
-      await supabase.from("listing_images").delete().in("listing_id", safeIds);
-    } catch (_) {}
-
-    const { error: delError } = await supabase.from("listings").delete().in("id", safeIds);
-    if (delError) {
-      console.error("deleteMultipleListings hatası:", delError);
-      throw new Error(delError.message || "İlanlar veritabanından silinemedi.");
-    }
-
-    // Yalnızca başarılı DELETE işleminden sonra store'dan kaldır
-    const idSet = new Set(safeIds);
+    const idSet = new Set(removed);
     set((s) => ({
       listings: s.listings.filter((l) => !idSet.has(l.id)),
     }));
+    if (failures.length > 0) {
+      throw new Error(
+        `${removed.length} ilan kaldırıldı, ${failures.length} ilan kaldırılamadı:\n` + failures.join("\n"),
+      );
+    }
   },
 
   setReportStatus: async (id, status) => {
