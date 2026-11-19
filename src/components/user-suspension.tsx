@@ -76,15 +76,15 @@ export function UserSuspensionSection({ userId, userName, isAdminUser, history, 
   };
 
   return (
-    <div className="space-y-3 border-t border-line/60 pt-3">
+    <div className="space-y-3">
       {active ? (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 space-y-1.5">
+        <div className="rounded-xl border border-bad/20 bg-bad-soft p-3 space-y-1.5">
           <div className="flex items-center gap-2">
-            <span className="rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-bold text-white">ASKIDA</span>
-            <span className="text-xs text-rose-900">{formatDate(active.suspended_at)}</span>
+            <span className="rounded-full bg-bad px-2 py-0.5 text-[11px] font-semibold text-white">Askıda</span>
+            <span className="text-xs text-bad">{formatDate(active.suspended_at)}</span>
           </div>
-          <p className="text-sm text-rose-950 whitespace-pre-wrap break-words">{active.reason}</p>
-          <p className="text-[11px] text-rose-800">
+          <p className="text-sm text-ink whitespace-pre-wrap break-words">{active.reason}</p>
+          <p className="text-xs text-muted">
             Askıya alan: {active.suspended_by_name || "—"}
             {active.hidden_listings ? ` · ${active.hidden_listings} ilan gizlendi` : ""}
           </p>
@@ -92,8 +92,8 @@ export function UserSuspensionSection({ userId, userName, isAdminUser, history, 
       ) : null}
 
       {mode === "suspend" && (
-        <div className="rounded-xl border border-line bg-shell/40 p-3 space-y-2">
-          <label htmlFor="suspend-reason" className="text-xs font-semibold text-ink">
+        <div className="rounded-xl border border-line bg-shell/50 p-3 space-y-2.5">
+          <label htmlFor="suspend-reason" className="block text-sm font-medium text-ink">
             Askıya alma nedeni (zorunlu)
           </label>
           <textarea
@@ -103,9 +103,9 @@ export function UserSuspensionSection({ userId, userName, isAdminUser, history, 
             rows={3}
             maxLength={1000}
             placeholder="Örn: Kapora isteyerek dolandırıcılık girişimi, 3 şikayet (12 Kasım)"
-            className="w-full rounded-lg border border-line bg-card p-2.5 text-sm text-ink outline-none focus:border-forest"
+            className="w-full rounded-xl border border-line bg-card p-3 text-sm text-ink outline-none focus:border-forest focus:ring-2 focus:ring-forest/15"
           />
-          <p className="text-[11px] text-muted leading-relaxed">
+          <p className="text-xs text-muted leading-relaxed">
             Kullanıcı uygulamaya giriş yapamaz. Aktif ilanları gizlenir, bekleyen teklifleri iptal edilir ve teklif
             sahiplerine 10 TakasPara iade edilir. Devam eden takaslarına dokunulmaz. Askıyı istediğin zaman
             kaldırabilirsin; gizlenen ilanlar geri gelir.
@@ -115,7 +115,7 @@ export function UserSuspensionSection({ userId, userName, isAdminUser, history, 
               type="button"
               onClick={reset}
               disabled={busy}
-              className="rounded-xl border border-line bg-card px-4 py-2 text-xs font-semibold text-ink"
+              className="h-10 rounded-xl border border-line bg-card px-4 text-sm font-medium text-ink hover:bg-shell"
             >
               Vazgeç
             </button>
@@ -123,7 +123,7 @@ export function UserSuspensionSection({ userId, userName, isAdminUser, history, 
               type="button"
               onClick={handleSuspend}
               disabled={busy || reason.trim().length < 3}
-              className="rounded-xl bg-rose-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
+              className="h-10 rounded-xl bg-bad px-4 text-sm font-medium text-white hover:bg-bad/90 disabled:opacity-50"
             >
               {busy ? "Askıya alınıyor…" : "Askıya al"}
             </button>
@@ -132,8 +132,8 @@ export function UserSuspensionSection({ userId, userName, isAdminUser, history, 
       )}
 
       {mode === "unsuspend" && active && (
-        <div className="rounded-xl border border-line bg-shell/40 p-3 space-y-2">
-          <p className="text-xs text-ink">
+        <div className="rounded-xl border border-line bg-shell/50 p-3 space-y-2.5">
+          <p className="text-sm text-ink">
             <strong>{userName}</strong> yeniden giriş yapabilecek ve askı sırasında gizlenen ilanları yayına dönecek.
           </p>
           <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
@@ -141,7 +141,7 @@ export function UserSuspensionSection({ userId, userName, isAdminUser, history, 
               type="button"
               onClick={reset}
               disabled={busy}
-              className="rounded-xl border border-line bg-card px-4 py-2 text-xs font-semibold text-ink"
+              className="h-10 rounded-xl border border-line bg-card px-4 text-sm font-medium text-ink hover:bg-shell"
             >
               Vazgeç
             </button>
@@ -149,7 +149,7 @@ export function UserSuspensionSection({ userId, userName, isAdminUser, history, 
               type="button"
               onClick={handleUnsuspend}
               disabled={busy}
-              className="rounded-xl bg-forest px-4 py-2 text-xs font-bold text-card disabled:opacity-50"
+              className="h-10 rounded-xl bg-forest px-4 text-sm font-medium text-card hover:bg-forest/90 disabled:opacity-50"
             >
               {busy ? "Kaldırılıyor…" : "Askıyı kaldır"}
             </button>
@@ -161,10 +161,10 @@ export function UserSuspensionSection({ userId, userName, isAdminUser, history, 
         <button
           type="button"
           onClick={() => setMode(active ? "unsuspend" : "suspend")}
-          className={`w-full sm:w-auto rounded-xl px-4 py-2 text-xs font-bold transition-colors ${
+          className={`h-10 w-full sm:w-auto rounded-xl px-4 text-sm font-medium transition-colors ${
             active
               ? "bg-forest text-card hover:bg-forest/90"
-              : "border border-rose-300 bg-card text-rose-700 hover:bg-rose-50"
+              : "border border-bad/30 bg-card text-bad hover:bg-bad-soft"
           }`}
         >
           {active ? "Askıyı kaldır" : "Kullanıcıyı askıya al"}
@@ -172,11 +172,11 @@ export function UserSuspensionSection({ userId, userName, isAdminUser, history, 
       )}
 
       {past.length > 0 && (
-        <details className="rounded-xl border border-line/70 bg-card">
-          <summary className="cursor-pointer px-3 py-2 text-xs font-semibold text-muted">
+        <details className="rounded-xl border border-line bg-card">
+          <summary className="cursor-pointer px-3 py-2.5 text-xs font-medium text-muted">
             Geçmiş askılar ({past.length})
           </summary>
-          <ul className="divide-y divide-line/60">
+          <ul className="divide-y divide-line border-t border-line">
             {past.map((s) => (
               <li key={s.suspended_at} className="px-3 py-2 space-y-0.5">
                 <p className="text-[11px] text-muted">
