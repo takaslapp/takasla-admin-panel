@@ -213,9 +213,9 @@ export function UsersPage() {
                   <tr>
                     <th className="px-4 py-2.5 font-medium">Kullanıcı</th>
                     <th className="w-40 px-2 py-2.5 font-medium">Telefon</th>
-                    <th className="hidden w-32 px-2 py-2.5 font-medium lg:table-cell">Şehir</th>
+                    <th className="hidden w-32 px-2 py-2.5 font-medium xl:table-cell">Şehir</th>
                     <th className="w-20 px-2 py-2.5 text-right font-medium">İlan</th>
-                    <th className="hidden w-32 px-2 py-2.5 font-medium lg:table-cell">Kayıt</th>
+                    <th className="hidden w-32 px-2 py-2.5 font-medium xl:table-cell">Kayıt</th>
                     <th className="w-28 px-2 py-2.5 font-medium">Durum</th>
                     <th className="w-10 px-2 py-2.5" />
                   </tr>
@@ -246,9 +246,9 @@ export function UsersPage() {
                         </div>
                       </td>
                       <td className="truncate px-2 py-3 font-mono text-xs text-muted">{u.phone || "—"}</td>
-                      <td className="hidden truncate px-2 py-3 text-muted lg:table-cell">{u.city || "—"}</td>
+                      <td className="hidden truncate px-2 py-3 text-muted xl:table-cell">{u.city || "—"}</td>
                       <td className="px-2 py-3 text-right tabular-nums text-ink">{u.listingsCount || 0}</td>
-                      <td className="hidden px-2 py-3 text-xs text-muted lg:table-cell">{dateOnly(u.joined)}</td>
+                      <td className="hidden px-2 py-3 text-xs text-muted xl:table-cell">{dateOnly(u.joined)}</td>
                       <td className="px-2 py-3">
                         <StatusCell u={u} />
                       </td>

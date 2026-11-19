@@ -275,7 +275,7 @@ export function ReportsPage() {
 
         <section className="overflow-hidden rounded-2xl border border-line bg-card">
           {/* Masaüstü sütun başlıkları */}
-          <div className="hidden grid-cols-[7rem_minmax(0,1fr)_minmax(0,14rem)_9rem_6.5rem_1rem] gap-4 border-b border-line bg-shell/50 px-4 py-2.5 text-xs font-medium text-muted lg:grid">
+          <div className="hidden grid-cols-[7rem_minmax(0,1fr)_minmax(0,14rem)_9rem_6.5rem_1rem] gap-4 border-b border-line bg-shell/50 px-4 py-2.5 text-xs font-medium text-muted xl:grid">
             <span>Tür</span>
             <span>Sebep</span>
             <span>Bildiren → Hedef</span>
@@ -305,47 +305,47 @@ export function ReportsPage() {
                     <button
                       type="button"
                       onClick={() => setSelectedId(r.id)}
-                      className="group grid w-full grid-cols-[auto_minmax(0,1fr)] gap-x-3 px-4 py-3.5 text-left transition-colors hover:bg-shell/60 focus-visible:bg-shell/60 focus-visible:outline-none lg:grid-cols-[7rem_minmax(0,1fr)_minmax(0,14rem)_9rem_6.5rem_1rem] lg:items-center lg:gap-4"
+                      className="group grid w-full grid-cols-[auto_minmax(0,1fr)] gap-x-3 px-4 py-3.5 text-left transition-colors hover:bg-shell/60 focus-visible:bg-shell/60 focus-visible:outline-none xl:grid-cols-[7rem_minmax(0,1fr)_minmax(0,14rem)_9rem_6.5rem_1rem] xl:items-center xl:gap-4"
                     >
                       {/* Tür */}
-                      <span className="flex items-center gap-2 text-sm text-ink lg:row-auto">
-                        <span className="grid size-9 place-items-center rounded-lg bg-shell text-forest lg:size-8">
+                      <span className="flex items-center gap-2 text-sm text-ink xl:row-auto">
+                        <span className="grid size-9 place-items-center rounded-lg bg-shell text-forest xl:size-8">
                           <TIcon className="size-4" />
                         </span>
-                        <span className="hidden lg:inline">{t.label}</span>
+                        <span className="hidden xl:inline">{t.label}</span>
                       </span>
 
                       {/* Mobil: tek blok; Masaüstü: sütunlar */}
-                      <span className="min-w-0 lg:contents">
-                        <span className="flex min-w-0 items-start justify-between gap-2 lg:block">
+                      <span className="min-w-0 xl:contents">
+                        <span className="flex min-w-0 items-start justify-between gap-2 xl:block">
                           <span className="min-w-0">
                             <span className="block truncate text-sm font-semibold text-ink">{r.subject}</span>
-                            <span className="mt-0.5 block truncate text-xs text-muted lg:hidden">
+                            <span className="mt-0.5 block truncate text-xs text-muted xl:hidden">
                               {r.reporter} → {targetSummary(r)}
                             </span>
                             {(r.cleanDetail || "").trim() ? (
-                              <span className="mt-0.5 hidden truncate text-xs text-muted lg:block">{r.cleanDetail.trim()}</span>
+                              <span className="mt-0.5 hidden truncate text-xs text-muted xl:block">{r.cleanDetail.trim()}</span>
                             ) : null}
                           </span>
-                          <Badge tone={st.tone} dot className="shrink-0 lg:hidden">
+                          <Badge tone={st.tone} dot className="shrink-0 xl:hidden">
                             {st.label}
                           </Badge>
                         </span>
-                        <span className="mt-1 block text-xs text-muted lg:hidden">
+                        <span className="mt-1 block text-xs text-muted xl:hidden">
                           {t.long} · {formatReportDate(r.created)}
                         </span>
 
-                        <span className="hidden min-w-0 text-sm lg:block">
+                        <span className="hidden min-w-0 text-sm xl:block">
                           <span className="block truncate text-ink">{r.reporter}</span>
                           <span className="block truncate text-xs text-muted">→ {targetSummary(r)}</span>
                         </span>
-                        <span className="hidden text-xs text-muted lg:block">{formatReportDate(r.created)}</span>
-                        <span className="hidden lg:block">
+                        <span className="hidden text-xs text-muted xl:block">{formatReportDate(r.created)}</span>
+                        <span className="hidden xl:block">
                           <Badge tone={st.tone} dot>
                             {st.label}
                           </Badge>
                         </span>
-                        <ChevronRight className="hidden size-4 text-muted group-hover:text-ink lg:block" />
+                        <ChevronRight className="hidden size-4 text-muted group-hover:text-ink xl:block" />
                       </span>
                     </button>
                   </li>

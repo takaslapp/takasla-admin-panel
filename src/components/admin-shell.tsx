@@ -1,42 +1,69 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
+  BarChart3,
   Bell,
   CheckCircle2,
-  ChevronRight,
-  Menu,
-  Package,
+  ImageIcon,
+  LayoutDashboard,
+  Lightbulb,
   LogOut,
+  Megaphone,
+  MoreHorizontal,
+  Package,
   RotateCw,
+  ScrollText,
   ShieldAlert,
   User as UserIcon,
-  X,
+  Users,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useAdminStore } from "@/lib/store";
 import { supabase } from "@/lib/supabase";
+import { Button } from "./ui/button";
+import { Sheet } from "./ui/sheet";
 
-const NAV = [
-  { to: "/", label: "Genel bakış" },
-  { to: "/kullanicilar", label: "Kullanıcılar" },
-  { to: "/ilanlar", label: "İlanlar" },
-  { to: "/sikayetler", label: "Şikayetler" },
-  { to: "/oneriler", label: "Öneriler" },
-  { to: "/bildirimler", label: "Duyuru & Bildirim" },
-  { to: "/bannerlar", label: "Bannerlar" },
-  { to: "/analitik", label: "Analitik" },
-  { to: "/islem-kaydi", label: "İşlem Kaydı" },
+type NavKey = "listings" | "reports" | "suggestions";
+
+interface NavItem {
+  to: string;
+  label: string;
+  short?: string;
+  icon: React.ComponentType<{ className?: string }>;
+  badge?: NavKey;
+}
+
+const NAV: NavItem[] = [
+  { to: "/", label: "Genel bakış", short: "Genel", icon: LayoutDashboard },
+  { to: "/ilanlar", label: "İlanlar", icon: Package, badge: "listings" },
+  { to: "/sikayetler", label: "Şikayetler", icon: ShieldAlert, badge: "reports" },
+  { to: "/kullanicilar", label: "Kullanıcılar", icon: Users },
+  { to: "/oneriler", label: "Öneriler", icon: Lightbulb, badge: "suggestions" },
+  { to: "/bildirimler", label: "Duyuru & Bildirim", icon: Megaphone },
+  { to: "/bannerlar", label: "Bannerlar", icon: ImageIcon },
+  { to: "/analitik", label: "Analitik", icon: BarChart3 },
+  { to: "/islem-kaydi", label: "İşlem Kaydı", icon: ScrollText },
 ];
 
-function Logo() {
+/** Mobil alt çubukta doğrudan görünenler; diğerleri "Daha fazla" içinde */
+const MOBILE_PRIMARY = ["/", "/ilanlar", "/sikayetler", "/kullanicilar"];
+
+function isActive(pathname: string, to: string) {
+  return to === "/" ? pathname === "/" : pathname.startsWith(to);
+}
+
+function CountBadge({ count, tone = "warn", className }: { count: number; tone?: "warn" | "muted"; className?: string }) {
+  if (count <= 0) return null;
   return (
-    <Link to="/" className="flex items-center">
-      <img
-        src="/logo-takasla.png"
-        alt="Takasla"
-        className="h-7 w-auto sm:h-8"
-      />
-    </Link>
+    <span
+      className={cn(
+        "min-w-5 rounded-full px-1.5 text-center text-[11px] font-semibold leading-5 tabular-nums",
+        tone === "warn" ? "bg-warn text-white" : "bg-card/15 text-card",
+        className,
+      )}
+    >
+      {count > 99 ? "99+" : count}
+    </span>
   );
 }
 
@@ -44,17 +71,17 @@ export function AdminShell({
   kicker,
   title,
   actions,
-  compact,
   children,
 }: {
   kicker: string;
   title: React.ReactNode;
   actions?: React.ReactNode;
+  /** Eski sürümden kalan; artık tüm başlıklar aynı boyutta */
   compact?: boolean;
   children: React.ReactNode;
 }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const [open, setOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -66,9 +93,18 @@ export function AdminShell({
 
   // Açık şikayetler ve açık öneriler
   const openReports = useMemo(() => reports.filter((r) => r.status === "acik"), [reports]);
-  const openSuggestions = useMemo(() => suggestions.filter((s) => s.status === "yeni" || s.status === "degerlendiriliyor"), [suggestions]);
+  const openSuggestions = useMemo(
+    () => suggestions.filter((s) => s.status === "yeni" || s.status === "degerlendiriliyor"),
+    [suggestions],
+  );
   const recentListings = useMemo(() => listings.slice(0, 2), [listings]);
   const recentUsers = useMemo(() => users.slice(0, 2), [users]);
+
+  const counts: Record<NavKey, number> = {
+    listings: listings.filter((l) => l.status === "pending").length,
+    reports: reports.filter((r) => r.status === "acik" || r.status === "inceleniyor").length,
+    suggestions: openSuggestions.length,
+  };
 
   // Okunmuş bildirim kimlikleri (localStorage üzerinden kalıcı)
   const [readReportIds, setReadReportIds] = useState<string[]>(() => {
@@ -86,7 +122,9 @@ export function AdminShell({
       const updated = Array.from(new Set([...prev, ...targetIds]));
       try {
         localStorage.setItem("takasla_read_reports", JSON.stringify(updated));
-      } catch {}
+      } catch {
+        /* depolama kullanılamıyor */
+      }
       return updated;
     });
   };
@@ -96,25 +134,13 @@ export function AdminShell({
     if (pathname === "/sikayetler" && openReports.length > 0) {
       markReportsAsRead();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname, openReports]);
 
-  // Henüz tıklanmamış / okunmamış açık şikayetler
-  const unreadReports = useMemo(
-    () => openReports.filter((r) => !readReportIds.includes(r.id)),
-    [openReports, readReportIds]
+  const unreadCount = useMemo(
+    () => openReports.filter((r) => !readReportIds.includes(r.id)).length,
+    [openReports, readReportIds],
   );
-  const unreadCount = unreadReports.length;
-
-  // Prevent background scroll when mobile menu or notification overlay is open
-  useEffect(() => {
-    if (open || notifOpen) {
-      const originalOverflow = document.body.style.overflow;
-      document.body.style.overflow = "hidden";
-      return () => {
-        document.body.style.overflow = originalOverflow;
-      };
-    }
-  }, [open, notifOpen]);
 
   const handleLogout = async () => {
     try {
@@ -131,437 +157,338 @@ export function AdminShell({
     }, 150);
   };
 
+  const openNotifications = () => {
+    setNotifOpen(true);
+    setMoreOpen(false);
+    if (openReports.length > 0) markReportsAsRead();
+  };
+
+  const moreActive = NAV.some((n) => !MOBILE_PRIMARY.includes(n.to) && isActive(pathname, n.to));
+
+  const iconButton =
+    "relative grid size-10 place-items-center rounded-xl text-card/80 transition-colors hover:bg-card/10 hover:text-card";
+
   return (
-    <div className="min-h-dvh bg-bg w-full max-w-full overflow-x-hidden p-0 sm:p-2.5 lg:p-3.5 xl:p-4">
-      <div className="min-h-dvh sm:min-h-[calc(100dvh-1.25rem)] w-full rounded-none sm:rounded-[1.75rem] bg-shell min-w-0 overflow-hidden shadow-2xl">
-        {/* Banner Üst Kısım - mobilde tam genişlik, taşma yapmaz */}
-        <div className="relative isolate rounded-b-[1.25rem] sm:rounded-b-[1.5rem] w-full min-w-0 overflow-hidden">
-          <div className="absolute inset-0 overflow-hidden rounded-b-[1.25rem] sm:rounded-b-[1.5rem] pointer-events-none">
-            <img
-              src="/hero.jpg"
-              alt=""
-              className="h-full w-full object-cover object-center"
-            />
-            <div className="absolute inset-0 bg-gradient-to-r from-forest/80 via-forest/45 to-forest/10" />
-          </div>
-
-          {/* Üst Navbar */}
-          <div className="relative z-20 flex items-center justify-between gap-2 px-3 py-3 sm:px-6 sm:py-4 lg:px-8 xl:px-10">
-            <Logo />
-
-            <nav className="hidden items-center gap-1 rounded-full bg-card/18 p-1 backdrop-blur-md lg:flex">
-              {NAV.map((item) => {
-                const active =
-                  item.to === "/"
-                    ? pathname === "/"
-                    : pathname.startsWith(item.to);
-                const isReports = item.to === "/sikayetler";
-                const isSuggestions = item.to === "/oneriler";
-                const count = isReports ? openReports.length : isSuggestions ? openSuggestions.length : 0;
-
-                return (
-                  <Link
-                    key={item.to}
-                    to={item.to}
-                    className={cn(
-                      "inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition-colors duration-150",
-                      active
-                        ? "bg-accent text-accent-fg shadow-xs"
-                        : "text-card/90 hover:bg-card/15",
-                    )}
-                  >
-                    <span>{item.label}</span>
-                    {count > 0 && (
-                      <span className={cn(
-                        "rounded-full px-1.5 py-0.2 text-[10px] font-extrabold tracking-tight",
-                        isReports ? "bg-rose-500 text-white" : "bg-emerald-500 text-white"
-                      )}>
-                        {count}
-                      </span>
-                    )}
-                  </Link>
-                );
-              })}
-            </nav>
-
-            {/* Sağ Üst Aksiyonlar:
-                Mobilde Sıralama: [Çıkış] -> [Zil] -> [Yenileme] -> [Menü] -> [Avatar]
-                Masaüstünde Sıralama: [Zil] -> [Yenileme] -> [Çıkış] -> [Avatar]
-            */}
-            <div className="flex items-center gap-1.5 sm:gap-2">
-              {/* ÇIKIŞ YAP BUTONU (Mobilde en solda, Menü butonundan uzakta) */}
-              <button
-                type="button"
-                aria-label="Çıkış Yap"
-                onClick={() => setShowLogoutConfirm(true)}
-                className="order-first lg:order-3 grid size-9 sm:size-11 place-items-center rounded-full bg-card/92 text-bad transition-all hover:bg-bad hover:text-white cursor-pointer"
-                title="Çıkış Yap"
-              >
-                <LogOut className="size-4" />
-              </button>
-
-              {/* ZİL BUTONU */}
-              <button
-                type="button"
-                aria-label="Bildirimler"
-                onClick={() => {
-                  setNotifOpen((v) => {
-                    const next = !v;
-                    if (next && openReports.length > 0) {
-                      markReportsAsRead();
-                    }
-                    return next;
-                  });
-                  setOpen(false);
-                }}
+    <div className="min-h-dvh w-full bg-shell lg:grid lg:grid-cols-[15rem_minmax(0,1fr)]">
+      {/* MASAÜSTÜ YAN MENÜ */}
+      <aside className="sticky top-0 hidden h-dvh flex-col bg-bg text-card lg:flex">
+        <div className="flex h-16 items-center px-5">
+          <Link to="/" aria-label="Genel bakış">
+            <img src="/logo-takasla-clean.png" alt="Takasla" className="h-7 w-auto" />
+          </Link>
+        </div>
+        <nav aria-label="Ana menü" className="flex-1 space-y-0.5 overflow-y-auto px-3 py-2">
+          {NAV.map((item) => {
+            const active = isActive(pathname, item.to);
+            const Icon = item.icon;
+            const count = item.badge ? counts[item.badge] : 0;
+            return (
+              <Link
+                key={item.to}
+                to={item.to}
+                aria-current={active ? "page" : undefined}
                 className={cn(
-                  "order-2 lg:order-1 relative grid size-9 sm:size-11 place-items-center rounded-full bg-card/92 text-forest transition-all hover:bg-card",
-                  notifOpen && "ring-2 ring-accent",
+                  "flex h-10 items-center gap-3 rounded-lg px-3 text-sm transition-colors",
+                  active ? "bg-card/10 font-medium text-card" : "text-card/70 hover:bg-card/5 hover:text-card",
                 )}
-                title="Bildirimler"
               >
-                <Bell className="size-4" />
-                {unreadCount > 0 ? (
-                  <span className="absolute -top-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full bg-rose-600 text-[10px] font-bold text-white shadow-sm ring-2 ring-card animate-pulse">
-                    {unreadCount}
-                  </span>
-                ) : null}
-              </button>
-
-              {/* YENİLEME İKONU (Siteyi Yenile) */}
-              <button
-                type="button"
-                aria-label="Siteyi Yenile"
-                onClick={handlePageReload}
-                className="order-3 lg:order-2 grid size-9 sm:size-11 place-items-center rounded-full bg-card/92 text-forest transition-all hover:bg-card hover:rotate-45"
-                title="Siteyi Yenile"
-              >
-                <RotateCw className={cn("size-4", isRefreshing && "animate-spin")} />
-              </button>
-
-              {/* MOBİL MENÜ (Sadece küçük ekranda görünür) */}
-              <button
-                type="button"
-                className="order-4 lg:hidden grid size-9 sm:size-11 place-items-center rounded-full bg-card/92 text-forest"
-                aria-label="Menü"
-                onClick={() => {
-                  setOpen((v) => !v);
-                  setNotifOpen(false);
-                }}
-              >
-                {open ? <X className="size-4" /> : <Menu className="size-4" />}
-              </button>
-
-              {/* EN SAĞDA: TAKASLA AVATAR */}
-              <img
-                src="/images/takasla-icon.jpg"
-                alt="Takasla"
-                className="order-5 lg:order-4 size-9 sm:size-11 rounded-full object-cover ring-2 ring-card/90 shadow-sm"
-              />
-            </div>
-          </div>
-
-          
-          {/* Başlık ve Kicker Alanı */}
-          <div
-            className={cn(
-              "relative z-10 flex flex-col justify-end gap-6 px-4 pb-8 sm:px-8 lg:flex-row lg:items-end lg:justify-between lg:px-10",
-              compact ? "min-h-[130px] pt-4" : "min-h-[190px] pt-8 sm:min-h-[240px]",
-            )}
+                <Icon className={cn("size-4 shrink-0", active ? "text-accent" : "")} />
+                <span className="flex-1 truncate">{item.label}</span>
+                <CountBadge count={count} tone={item.badge === "suggestions" ? "muted" : "warn"} />
+              </Link>
+            );
+          })}
+        </nav>
+        <div className="border-t border-card/10 p-3">
+          <button
+            type="button"
+            onClick={() => setShowLogoutConfirm(true)}
+            className="flex h-10 w-full items-center gap-3 rounded-lg px-3 text-sm text-card/70 transition-colors hover:bg-card/5 hover:text-card"
           >
-            <div className="max-w-2xl text-card">
-              <p className="text-xs sm:text-sm text-card/85 font-medium">{kicker}</p>
-              <h1 className="mt-1.5 font-display text-2xl font-semibold leading-[1.1] tracking-tight sm:text-4xl lg:text-5xl">
-                {title}
-              </h1>
+            <LogOut className="size-4" />
+            Çıkış yap
+          </button>
+        </div>
+      </aside>
+
+      <div className="flex min-w-0 flex-col">
+        {/* ÜST ÇUBUK */}
+        <header className="flex h-14 items-center justify-between gap-2 bg-bg px-3 text-card lg:h-16 lg:justify-end lg:bg-transparent lg:px-8 lg:text-ink">
+          <Link to="/" aria-label="Genel bakış" className="lg:hidden">
+            <img src="/logo-takasla-clean.png" alt="Takasla" className="h-6 w-auto" />
+          </Link>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={handlePageReload}
+              aria-label="Sayfayı yenile"
+              title="Sayfayı yenile"
+              className={cn(iconButton, "lg:text-muted lg:hover:bg-ink/5 lg:hover:text-ink")}
+            >
+              <RotateCw className={cn("size-4", isRefreshing && "animate-spin")} />
+            </button>
+            <button
+              type="button"
+              onClick={openNotifications}
+              aria-label={unreadCount > 0 ? `Bildirimler, ${unreadCount} yeni` : "Bildirimler"}
+              title="Bildirimler"
+              className={cn(iconButton, "lg:text-muted lg:hover:bg-ink/5 lg:hover:text-ink")}
+            >
+              <Bell className="size-4" />
+              {unreadCount > 0 ? (
+                <span className="absolute right-1.5 top-1.5 grid min-w-4 place-items-center rounded-full bg-warn px-1 text-[10px] font-semibold leading-4 text-white">
+                  {unreadCount}
+                </span>
+              ) : null}
+            </button>
+          </div>
+        </header>
+
+        {/* SAYFA BAŞLIĞI */}
+        <div className="mx-auto w-full max-w-6xl px-4 pb-4 pt-5 sm:px-6 lg:px-8 lg:pt-0">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-muted">{kicker}</p>
+              <h1 className="mt-0.5 text-2xl font-semibold tracking-tight text-ink sm:text-[1.75rem]">{title}</h1>
             </div>
             {actions ? <div className="shrink-0">{actions}</div> : null}
           </div>
         </div>
 
-        {/* Ana Sayfa İçeriği */}
-        <div className="w-full max-w-full min-w-0 px-2 pb-6 pt-3 sm:px-5 sm:pb-8 lg:px-6">{children}</div>
+        {/* İÇERİK */}
+        <main className="mx-auto w-full min-w-0 max-w-6xl flex-1 px-3 pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:px-6 lg:px-8 lg:pb-10">
+          {children}
+        </main>
       </div>
 
-      {/* Root Level Fixed Overlays (Banner isolate veya overflow-hidden sınırlarını aşar) */}
-      {/* SİTE TARZI BİLDİRİM PANELİ (Fixed pozisyon ile kesilme veya taşma olmadan tam açılır) */}
-          {notifOpen ? (
-            <>
-              <div
-                className="fixed inset-0 z-[99] bg-black/40 backdrop-blur-[2px]"
-                onClick={() => setNotifOpen(false)}
-              />
-              <div className="fixed top-16 sm:top-20 right-3 sm:right-6 lg:right-8 z-[100] flex max-h-[80vh] w-[calc(100vw-1.5rem)] max-w-sm flex-col rounded-2xl bg-card p-4 shadow-2xl ring-1 ring-line/80 backdrop-blur-xl sm:w-96 animate-in fade-in zoom-in-95">
-                {/* Header */}
-                <div className="flex shrink-0 items-center justify-between border-b border-line/60 pb-3">
-                  <div className="flex items-center gap-2">
-                    <div className="flex size-7 items-center justify-center rounded-full bg-forest/10 text-forest">
-                      <Bell className="size-3.5" />
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-bold text-ink">Bildirim Merkezi</h3>
-                      <p className="text-[11px] text-muted">Takasla sistem ve denetim uyarıları</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    {unreadCount > 0 ? (
-                      <>
-                        <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700">
-                          {unreadCount} Yeni
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => markReportsAsRead()}
-                          className="text-[11px] font-medium text-forest hover:underline"
-                        >
-                          Okundu Say
-                        </button>
-                      </>
-                    ) : (
-                      <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
-                        Temiz
-                      </span>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => setNotifOpen(false)}
-                      className="rounded-full p-1 text-muted hover:bg-shell hover:text-ink"
-                      aria-label="Kapat"
-                    >
-                      <X className="size-4" />
-                    </button>
-                  </div>
-                </div>
+      {/* MOBİL ALT ÇUBUK */}
+      <nav
+        aria-label="Ana menü"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
+      >
+        <ul className="grid grid-cols-5">
+          {NAV.filter((n) => MOBILE_PRIMARY.includes(n.to)).map((item) => {
+            const active = isActive(pathname, item.to);
+            const Icon = item.icon;
+            const count = item.badge ? counts[item.badge] : 0;
+            return (
+              <li key={item.to}>
+                <Link
+                  to={item.to}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    "relative flex h-16 flex-col items-center justify-center gap-1 text-[11px]",
+                    active ? "font-semibold text-forest" : "text-muted",
+                  )}
+                >
+                  {active ? <span className="absolute inset-x-5 top-0 h-0.5 rounded-full bg-forest" aria-hidden /> : null}
+                  <span className="relative">
+                    <Icon className="size-5" />
+                    {count > 0 ? (
+                      <CountBadge count={count} className="absolute -right-3 -top-2 min-w-4 px-1 text-[10px] leading-4" />
+                    ) : null}
+                  </span>
+                  {item.short ?? item.label}
+                </Link>
+              </li>
+            );
+          })}
+          <li>
+            <button
+              type="button"
+              onClick={() => setMoreOpen(true)}
+              aria-expanded={moreOpen}
+              className={cn(
+                "relative flex h-16 w-full flex-col items-center justify-center gap-1 text-[11px]",
+                moreActive ? "font-semibold text-forest" : "text-muted",
+              )}
+            >
+              {moreActive ? <span className="absolute inset-x-5 top-0 h-0.5 rounded-full bg-forest" aria-hidden /> : null}
+              <span className="relative">
+                <MoreHorizontal className="size-5" />
+                {counts.suggestions > 0 ? (
+                  <span className="absolute -right-1 -top-0.5 size-2 rounded-full bg-forest" aria-hidden />
+                ) : null}
+              </span>
+              Daha fazla
+            </button>
+          </li>
+        </ul>
+      </nav>
 
-                {/* Kaydırılabilir Bildirim Listesi */}
-                <div className="mt-3 flex-1 overflow-y-auto pr-1 space-y-2.5">
-                  {/* Açık Şikayetler */}
-                  {openReports.length > 0 ? (
-                    openReports.map((r) => (
+      {/* DAHA FAZLA (mobil) */}
+      <Sheet open={moreOpen} onClose={() => setMoreOpen(false)} title="Menü">
+        <nav aria-label="Diğer sayfalar" className="space-y-1">
+          {NAV.filter((n) => !MOBILE_PRIMARY.includes(n.to)).map((item) => {
+            const active = isActive(pathname, item.to);
+            const Icon = item.icon;
+            const count = item.badge ? counts[item.badge] : 0;
+            return (
+              <Link
+                key={item.to}
+                to={item.to}
+                onClick={() => setMoreOpen(false)}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "flex h-12 items-center gap-3 rounded-xl px-3 text-sm",
+                  active ? "bg-forest/10 font-semibold text-forest" : "text-ink hover:bg-shell",
+                )}
+              >
+                <Icon className="size-5 text-muted" />
+                <span className="flex-1">{item.label}</span>
+                {count > 0 ? (
+                  <span className="rounded-full bg-shell px-2 text-xs font-semibold leading-5 text-ink">{count}</span>
+                ) : null}
+              </Link>
+            );
+          })}
+        </nav>
+        <div className="mt-4 border-t border-line pt-4">
+          <button
+            type="button"
+            onClick={() => {
+              setMoreOpen(false);
+              setShowLogoutConfirm(true);
+            }}
+            className="flex h-12 w-full items-center gap-3 rounded-xl px-3 text-sm text-bad hover:bg-bad-soft"
+          >
+            <LogOut className="size-5" />
+            Çıkış yap
+          </button>
+        </div>
+      </Sheet>
+
+      {/* BİLDİRİM MERKEZİ */}
+      <Sheet
+        open={notifOpen}
+        onClose={() => setNotifOpen(false)}
+        title="Bildirimler"
+        description="Yeni şikayetler, ilanlar ve üyeler"
+        size="sm"
+        footer={
+          <Button variant="secondary" size="md" className="w-full" asChild>
+            <Link to="/sikayetler" onClick={() => setNotifOpen(false)}>
+              Tüm şikayetler
+            </Link>
+          </Button>
+        }
+      >
+        {openReports.length === 0 && recentListings.length === 0 && recentUsers.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 py-10 text-center text-sm text-muted">
+            <CheckCircle2 className="size-6 text-forest" />
+            Yeni bildirim yok.
+          </div>
+        ) : (
+          <div className="space-y-5">
+            {openReports.length > 0 ? (
+              <div>
+                <h3 className="mb-2 text-xs font-semibold text-muted">Açık şikayetler</h3>
+                <ul className="divide-y divide-line rounded-xl border border-line">
+                  {openReports.map((r) => (
+                    <li key={r.id}>
                       <Link
-                        key={r.id}
                         to="/sikayetler"
                         onClick={() => {
                           markReportsAsRead([r.id]);
                           setNotifOpen(false);
                         }}
-                        className="group flex items-start gap-3 rounded-xl border border-rose-100 bg-rose-50/50 p-3 transition-colors hover:bg-rose-50/90"
+                        className="flex items-start gap-3 px-3 py-2.5 hover:bg-shell/60"
                       >
-                        <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-rose-500 text-white">
-                          <ShieldAlert className="size-3.5" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center justify-between gap-1">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-rose-700">
-                              Yeni Şikayet
-                            </span>
-                            <span className="text-[10px] text-muted">{r.created}</span>
-                          </div>
-                          <p className="mt-0.5 truncate text-xs font-semibold text-ink">
-                            {r.subject}
-                          </p>
-                          <p className="mt-0.5 line-clamp-1 text-[11px] text-muted">
+                        <ShieldAlert className="mt-0.5 size-4 shrink-0 text-warn" />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-medium text-ink">{r.subject}</span>
+                          <span className="block truncate text-xs text-muted">
                             {r.reporter} → {r.target}
-                          </p>
-                        </div>
+                          </span>
+                        </span>
+                        <span className="shrink-0 text-[11px] text-muted">{r.created.split(" ")[0]}</span>
                       </Link>
-                    ))
-                  ) : null}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
 
-                  {/* Son İlanlar */}
+            {recentListings.length > 0 ? (
+              <div>
+                <h3 className="mb-2 text-xs font-semibold text-muted">Son ilanlar</h3>
+                <ul className="divide-y divide-line rounded-xl border border-line">
                   {recentListings.map((l) => (
-                    <Link
-                      key={l.id}
-                      to="/ilanlar"
-                      onClick={() => setNotifOpen(false)}
-                      className="group flex items-start gap-3 rounded-xl border border-line/50 bg-shell/40 p-3 transition-colors hover:bg-shell/80"
-                    >
-                      <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-forest/10 text-forest">
-                        <Package className="size-3.5" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-1">
-                          <span className="text-[10px] font-semibold text-forest">
-                            Yeni İlan
-                          </span>
-                          <span className="text-[10px] text-muted">{l.created}</span>
-                        </div>
-                        <p className="mt-0.5 truncate text-xs font-semibold text-ink">
-                          {l.title}
-                        </p>
-                        <p className="mt-0.5 truncate text-[11px] text-muted">
-                          Sahibi: {l.ownerName} · {l.category}
-                        </p>
-                      </div>
-                    </Link>
-                  ))}
-
-                  {/* Son Kullanıcılar */}
-                  {recentUsers.map((u) => (
-                    <Link
-                      key={u.id}
-                      to="/kullanicilar"
-                      onClick={() => setNotifOpen(false)}
-                      className="group flex items-start gap-3 rounded-xl border border-line/50 bg-shell/40 p-3 transition-colors hover:bg-shell/80"
-                    >
-                      <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-accent/15 text-accent-fg">
-                        <UserIcon className="size-3.5" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-1">
-                          <span className="text-[10px] font-semibold text-muted">
-                            Yeni Üye
-                          </span>
-                          <span className="text-[10px] text-muted">{u.joined}</span>
-                        </div>
-                        <p className="mt-0.5 truncate text-xs font-semibold text-ink">
-                          {u.name} ({u.username})
-                        </p>
-                        <p className="mt-0.5 truncate text-[11px] text-muted">
-                          {u.city} · {u.phone}
-                        </p>
-                      </div>
-                    </Link>
-                  ))}
-
-                  {openReports.length === 0 && recentListings.length === 0 && recentUsers.length === 0 ? (
-                    <div className="py-6 text-center text-muted">
-                      <CheckCircle2 className="mx-auto size-7 opacity-40 mb-1.5" />
-                      <p className="text-xs">Şu anda bekleyen yeni bildirim bulunmuyor.</p>
-                    </div>
-                  ) : null}
-                </div>
-
-                {/* Alt Aksiyon Butonu */}
-                <div className="mt-3.5 shrink-0 border-t border-line/60 pt-2.5">
-                  <Link
-                    to="/sikayetler"
-                    onClick={() => setNotifOpen(false)}
-                    className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-forest/8 py-2 text-xs font-semibold text-forest transition-colors hover:bg-forest/15"
-                  >
-                    Tüm Şikayetleri İncele
-                    <ChevronRight className="size-3.5" />
-                  </Link>
-                </div>
-              </div>
-            </>
-          ) : null}
-
-          {/* Mobil Navigasyon Menüsü - Floating Overlay (Hero görselini asla uzatmaz) */}
-          {open ? (
-            <>
-              <div
-                className="fixed inset-0 z-[99] bg-black/40 backdrop-blur-[2px] lg:hidden"
-                onClick={() => setOpen(false)}
-              />
-              <div className="fixed top-16 inset-x-3 z-[100] max-h-[calc(100dvh-5rem)] overflow-y-auto rounded-2xl bg-card p-3 shadow-2xl ring-1 ring-line/80 backdrop-blur-xl lg:hidden animate-in fade-in zoom-in-95">
-                <div className="flex items-center justify-between border-b border-line/60 px-2 pb-2 mb-2">
-                  <span className="text-xs font-bold uppercase tracking-wider text-muted">Takasla Menü</span>
-                  <button
-                    type="button"
-                    onClick={() => setOpen(false)}
-                    className="rounded-full p-1 text-muted hover:bg-shell hover:text-ink"
-                    aria-label="Kapat"
-                  >
-                    <X className="size-4" />
-                  </button>
-                </div>
-                <div className="grid gap-1">
-                  {NAV.map((item) => {
-                    const active =
-                      item.to === "/"
-                        ? pathname === "/"
-                        : pathname.startsWith(item.to);
-                    const isReports = item.to === "/sikayetler";
-                    const isSuggestions = item.to === "/oneriler";
-                    const count = isReports ? openReports.length : isSuggestions ? openSuggestions.length : 0;
-
-                    return (
+                    <li key={l.id}>
                       <Link
-                        key={item.to}
-                        to={item.to}
-                        onClick={() => setOpen(false)}
-                        className={cn(
-                          "flex items-center justify-between rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors",
-                          active
-                            ? "bg-accent text-accent-fg shadow-sm"
-                            : "text-forest hover:bg-shell/80",
-                        )}
+                        to="/ilanlar"
+                        onClick={() => setNotifOpen(false)}
+                        className="flex items-start gap-3 px-3 py-2.5 hover:bg-shell/60"
                       >
-                        <div className="flex items-center gap-2">
-                          <span>{item.label}</span>
-                          {count > 0 && (
-                            <span className={cn(
-                              "rounded-full px-1.5 py-0.2 text-[10px] font-extrabold text-white",
-                              isReports ? "bg-rose-500" : "bg-emerald-500"
-                            )}>
-                              {count}
-                            </span>
-                          )}
-                        </div>
-                        {active ? (
-                          <span className="size-2 rounded-full bg-forest" />
-                        ) : null}
+                        <Package className="mt-0.5 size-4 shrink-0 text-muted" />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-medium text-ink">{l.title}</span>
+                          <span className="block truncate text-xs text-muted">
+                            {l.ownerName} · {l.category}
+                          </span>
+                        </span>
                       </Link>
-                    );
-                  })}
-                                </div>
-                <div className="mt-2 pt-2 border-t border-line/60">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setOpen(false);
-                      setShowLogoutConfirm(true);
-                    }}
-                    className="flex w-full items-center justify-between rounded-xl px-4 py-2.5 text-sm font-semibold text-bad hover:bg-bad-soft transition-colors cursor-pointer"
-                  >
-                    <span className="flex items-center gap-2">
-                      <LogOut className="size-4" />
-                      Çıkış Yap
-                    </span>
-                  </button>
-                </div>
+                    </li>
+                  ))}
+                </ul>
               </div>
-            </>
-          ) : null}
+            ) : null}
 
-      {/* Çıkış Yap Onay Modalı */}
-      {showLogoutConfirm && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
-          <div
-            className="fixed inset-0 bg-black/50 backdrop-blur-xs transition-opacity"
-            onClick={() => setShowLogoutConfirm(false)}
-          />
-          <div className="relative z-10 w-full max-w-sm rounded-2xl bg-card p-5 shadow-2xl ring-1 ring-line/80 animate-in fade-in zoom-in-95">
-            <div className="flex size-11 items-center justify-center rounded-xl bg-rose-500/10 text-rose-600 mb-3.5">
-              <LogOut className="size-5" />
-            </div>
-            <h3 className="text-base font-bold text-ink">Yönetici Oturumu Kapatılsın mı?</h3>
-            <p className="mt-1 text-xs text-muted leading-relaxed">
-              Admin panelinden güvenli bir şekilde çıkış yapılacak. Tekrar erişmek için yönetici bilgilerinizle oturum açmanız gerekecektir.
-            </p>
-            <div className="mt-5 flex items-center justify-end gap-2.5">
-              <button
-                type="button"
-                onClick={() => setShowLogoutConfirm(false)}
-                className="rounded-xl border border-line bg-shell/50 px-3.5 py-2 text-xs font-semibold text-ink hover:bg-shell transition-colors cursor-pointer"
-              >
-                Vazgeç
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowLogoutConfirm(false);
-                  handleLogout();
-                }}
-                className="rounded-xl bg-rose-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-rose-700 transition-colors cursor-pointer"
-              >
-                Evet, Çıkış Yap
-              </button>
-            </div>
+            {recentUsers.length > 0 ? (
+              <div>
+                <h3 className="mb-2 text-xs font-semibold text-muted">Son üyeler</h3>
+                <ul className="divide-y divide-line rounded-xl border border-line">
+                  {recentUsers.map((u) => (
+                    <li key={u.id}>
+                      <Link
+                        to="/kullanicilar"
+                        onClick={() => setNotifOpen(false)}
+                        className="flex items-start gap-3 px-3 py-2.5 hover:bg-shell/60"
+                      >
+                        <UserIcon className="mt-0.5 size-4 shrink-0 text-muted" />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-medium text-ink">{u.name}</span>
+                          <span className="block truncate text-xs text-muted">
+                            {u.username} · {u.city}
+                          </span>
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
           </div>
-        </div>
-      )}
+        )}
+      </Sheet>
+
+      {/* ÇIKIŞ ONAYI */}
+      <Sheet
+        variant="center"
+        size="sm"
+        open={showLogoutConfirm}
+        onClose={() => setShowLogoutConfirm(false)}
+        title="Çıkış yapılsın mı?"
+        footer={
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button variant="secondary" size="md" onClick={() => setShowLogoutConfirm(false)}>
+              Vazgeç
+            </Button>
+            <Button
+              variant="destructive"
+              size="md"
+              onClick={() => {
+                setShowLogoutConfirm(false);
+                handleLogout();
+              }}
+            >
+              Çıkış yap
+            </Button>
+          </div>
+        }
+      >
+        <p className="text-sm text-muted">Tekrar girmek için yönetici bilgilerinle oturum açman gerekir.</p>
+      </Sheet>
     </div>
   );
 }
@@ -582,16 +509,14 @@ export function Panel({
   return (
     <section
       className={cn(
-        "w-full max-w-full min-w-0 overflow-hidden rounded-[1.25rem] sm:rounded-[1.5rem] bg-card p-3.5 sm:p-6 shadow-[0_10px_30px_rgba(20,24,18,0.05)] ring-1 ring-line/50",
+        "w-full min-w-0 max-w-full overflow-hidden rounded-2xl border border-line bg-card p-4 sm:p-5",
         className,
       )}
     >
-      <div className="mb-4 sm:mb-5 flex flex-wrap items-start justify-between gap-3">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-base sm:text-lg font-semibold tracking-tight text-ink">{title}</h2>
-          {subtitle ? (
-            <p className="mt-0.5 text-xs sm:text-sm text-muted">{subtitle}</p>
-          ) : null}
+          <h2 className="text-sm font-semibold text-ink sm:text-base">{title}</h2>
+          {subtitle ? <p className="mt-0.5 text-xs text-muted sm:text-sm">{subtitle}</p> : null}
         </div>
         {action}
       </div>
@@ -615,13 +540,6 @@ export function StatusChip({
     info: "bg-info-soft text-forest",
   } as const;
   return (
-    <span
-      className={cn(
-        "inline-flex rounded-full px-2.5 py-1 text-xs font-medium",
-        map[tone],
-      )}
-    >
-      {children}
-    </span>
+    <span className={cn("inline-flex rounded-full px-2.5 py-1 text-xs font-medium", map[tone])}>{children}</span>
   );
 }
